@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from "react";
 export default function ProfileScreen({ user, onUpdate, onLogout }) {
   const [form, setForm] = useState({
     name: user.name ?? "",
+    age: user.age ?? "",
     college: user.college ?? "",
     year: user.year ?? "",
     skills: (user.skills ?? []).join(", "),
@@ -15,6 +16,7 @@ export default function ProfileScreen({ user, onUpdate, onLogout }) {
   useEffect(() => {
     setForm({
       name: user.name ?? "",
+      age: user.age ?? "",
       college: user.college ?? "",
       year: user.year ?? "",
       skills: (user.skills ?? []).join(", "),
@@ -45,6 +47,7 @@ export default function ProfileScreen({ user, onUpdate, onLogout }) {
     const next = {
       ...user,
       name: form.name.trim() || user.name,
+      age: form.age ? parseInt(form.age) : user.age,
       college: form.college.trim() || user.college,
       year: form.year || user.year,
       skills: form.skills
@@ -59,7 +62,7 @@ export default function ProfileScreen({ user, onUpdate, onLogout }) {
   };
 
   return (
-    <div className="profile-edit-card">
+    <div className="profile-edit-card profile-scrollable">
       <div className="profile-edit-header">
         <div className="profile-edit-avatar">
           {user.name?.[0]?.toUpperCase() ?? "U"}
@@ -80,6 +83,19 @@ export default function ProfileScreen({ user, onUpdate, onLogout }) {
             value={form.name}
             onChange={handleChange("name")}
             className="field-input"
+          />
+        </label>
+
+        <label className="field">
+          <span className="field-label">Age</span>
+          <input
+            type="number"
+            value={form.age}
+            onChange={handleChange("age")}
+            className="field-input"
+            min="16"
+            max="100"
+            placeholder="Enter your age"
           />
         </label>
 

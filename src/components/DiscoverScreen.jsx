@@ -33,7 +33,7 @@ export default function DiscoverScreen({
 
         <div className="profile-meta">
           <div className="profile-name-row">
-            <div className="profile-name">{profile.name}</div>
+            <div className="profile-name">{profile.name} {profile.age && <span className="profile-age">({profile.age})</span>}</div>
             <div className="profile-year-pill">
               <span className="label">Matches</span>
               <span className="value">{matchesCount}</span>

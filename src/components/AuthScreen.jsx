@@ -3,6 +3,7 @@ import React, { useState } from "react";
 const DEMO_OTP = "1234";
 
 export default function AuthScreen({ onAuthSuccess, existingUsers }) {
+  const [mode, setMode] = useState("signup"); // 'signup' or 'login'
   const [step, setStep] = useState("phone"); // 'phone', 'otp', 'signup'
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
@@ -15,6 +16,7 @@ export default function AuthScreen({ onAuthSuccess, existingUsers }) {
     gender: "",
     college: "",
     year: "",
+    age: "",
     skills: ""
   });
 
@@ -29,7 +31,23 @@ export default function AuthScreen({ onAuthSuccess, existingUsers }) {
     
     // Check if user exists
     const existingUser = existingUsers.find(u => u.phone === phone);
-    setIsNewUser(!existingUser);
+    
+    if (mode === "login") {
+      // Login mode: only allow if user exists
+      if (!existingUser) {
+        setError("No account found with this number. Please sign up first.");
+        return;
+      }
+      setIsNewUser(false);
+    } else {
+      // Signup mode: check if user already exists
+      if (existingUser) {
+        setError("Account already exists. Please login instead.");
+        return;
+      }
+      setIsNewUser(true);
+    }
+    
     setStep("otp");
   };
 
@@ -63,6 +81,10 @@ export default function AuthScreen({ onAuthSuccess, existingUsers }) {
       setError("Please select your gender");
       return;
     }
+    if (!signupData.age || signupData.age < 16 || signupData.age > 100) {
+      setError("Please enter a valid age (16-100)");
+      return;
+    }
     if (!signupData.college.trim()) {
       setError("Please enter your college");
       return;
@@ -76,6 +98,7 @@ export default function AuthScreen({ onAuthSuccess, existingUsers }) {
       phone,
       name: signupData.name.trim(),
       gender: signupData.gender,
+      age: parseInt(signupData.age),
       college: signupData.college.trim(),
       year: signupData.year,
       skills: signupData.skills.split(",").map(s => s.trim()).filter(Boolean),
@@ -97,7 +120,7 @@ export default function AuthScreen({ onAuthSuccess, existingUsers }) {
           <img src="/logo.svg" alt="Citadel" className="auth-logo-img" />
           <h1 className="auth-title">Citadel</h1>
           <p className="auth-subtitle">
-            {step === "phone" && "Enter your phone to get started"}
+            {step === "phone" && (mode === "login" ? "Welcome back! Enter your phone" : "Enter your phone to get started")}
             {step === "otp" && "Enter the OTP sent to your phone"}
             {step === "signup" && "Complete your profile"}
           </p>
@@ -112,6 +135,22 @@ export default function AuthScreen({ onAuthSuccess, existingUsers }) {
         {/* Phone Input Step */}
         {step === "phone" && (
           <form className="auth-form" onSubmit={handlePhoneSubmit}>
+            <div className="auth-mode-toggle">
+              <button
+                type="button"
+                className={`mode-btn ${mode === "signup" ? "active" : ""}`}
+                onClick={() => { setMode("signup"); setError(""); }}
+              >
+                Sign Up
+              </button>
+              <button
+                type="button"
+                className={`mode-btn ${mode === "login" ? "active" : ""}`}
+                onClick={() => { setMode("login"); setError(""); }}
+              >
+                Login
+              </button>
+            </div>
             <div className="auth-field">
               <label className="auth-label">Phone Number</label>
               <div className="phone-input-wrapper">
@@ -130,7 +169,7 @@ export default function AuthScreen({ onAuthSuccess, existingUsers }) {
               </div>
             </div>
             <button type="submit" className="auth-btn primary">
-              Continue
+              {mode === "login" ? "Login" : "Continue"}
             </button>
           </form>
         )}
@@ -207,6 +246,19 @@ export default function AuthScreen({ onAuthSuccess, existingUsers }) {
             </div>
 
             <div className="auth-field">
+              <label className="auth-label">Age</label>
+              <input
+                type="number"
+                value={signupData.age}
+                onChange={handleSignupChange("age")}
+                placeholder="Enter your age"
+                className="auth-input"
+                min="16"
+                max="100"
+              />
+            </div>
+
+            <div className="auth-field">
               <label className="auth-label">College</label>
               <input
                 type="text"
@@ -254,7 +306,7 @@ export default function AuthScreen({ onAuthSuccess, existingUsers }) {
               onClick={() => {
                 setStep("phone");
                 setOtp("");
-                setSignupData({ name: "", gender: "", college: "", year: "", skills: "" });
+                setSignupData({ name: "", gender: "", college: "", year: "", age: "", skills: "" });
                 setError("");
               }}
             >
