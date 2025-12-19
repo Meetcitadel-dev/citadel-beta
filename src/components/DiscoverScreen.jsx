@@ -4,6 +4,7 @@ export default function DiscoverScreen({
   profile,
   adjectives,
   onSelectAdjective,
+  onSkip,
   matchesCount = 0,
   vibesSentToday = 0,
   isPremium = false
@@ -30,19 +31,24 @@ export default function DiscoverScreen({
   return (
     <div className={`profile-card ${isFadingOut ? 'fade-out' : 'fade-in'}`}>
       <div className="profile-image-wrapper">
-        {/* Daily Limit Banner */}
-        {!isPremium && (
-          <div className="vibes-limit-banner">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="limit-icon">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="12" y1="16" x2="12" y2="12"/>
-              <line x1="12" y1="8" x2="12.01" y2="8"/>
-            </svg>
-            <div className="limit-text">
-              <strong>{remainingVibes} vibes left today.</strong> {vibesSentToday >= 10 ? 'Upgrade to Premium for unlimited vibes!' : 'You can send 10 vibes per day.'}
-            </div>
+        {/* Daily Limit Banner - always show with per-user vibe count */}
+        <div className="vibes-limit-banner">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="limit-icon">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+          <div className="limit-text">
+            <strong>
+              {isPremium ? 'Unlimited vibes' : `${remainingVibes} vibes left today.`}
+            </strong>{" "}
+            {isPremium
+              ? 'Enjoy unlimited vibes.'
+              : (vibesSentToday >= 10
+                ? 'Daily limit reached. Upgrade to Premium for unlimited vibes.'
+                : 'You can send 10 vibes per day.')}
           </div>
-        )}
+        </div>
         <img
           src={profile.imageUrl}
           alt={profile.name}
@@ -57,6 +63,18 @@ export default function DiscoverScreen({
               <span className="value">{matchesCount}</span>
             </div>
           </div>
+          
+          {isPremium && (
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "8px" }}>
+              <button
+                className="profile-skip-button"
+                onClick={() => onSkip?.()}
+                title="Skip this profile"
+              >
+                Skip
+              </button>
+            </div>
+          )}
 
           <div className="profile-role">{roleLine}</div>
           <div className="profile-college-line">

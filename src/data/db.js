@@ -13,12 +13,13 @@ const DB_KEYS = {
   IS_PREMIUM: 'citadel_is_premium'
 };
 
-// Initialize database with default data if empty
+// Initialize database with default data.
+// Always overwrite the USERS list so changes to the seed data (USERS) take effect,
+// but keep existing notifications/matches/messages unless they don't exist yet.
 export function initializeDB(defaultUsers) {
-  const existingUsers = localStorage.getItem(DB_KEYS.USERS);
-  if (!existingUsers) {
-    localStorage.setItem(DB_KEYS.USERS, JSON.stringify(defaultUsers));
-  }
+  // Always refresh users from the provided default seed
+  localStorage.setItem(DB_KEYS.USERS, JSON.stringify(defaultUsers));
+
   if (!localStorage.getItem(DB_KEYS.NOTIFICATIONS)) {
     localStorage.setItem(DB_KEYS.NOTIFICATIONS, JSON.stringify([]));
   }

@@ -603,6 +603,7 @@ export default function App() {
                   profile={currentProfile}
                   adjectives={adjectives}
                   onSelectAdjective={handleAdjectiveSelect}
+                  onSkip={handleNextProfile}
                   matchesCount={currentProfileMatchesCount}
                   vibesSentToday={vibesSentToday}
                   isPremium={isPremium}

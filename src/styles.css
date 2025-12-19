@@ -601,6 +601,28 @@ body {
   text-shadow: none;
 }
 
+.profile-skip-button {
+  background: rgba(255, 255, 255, 0.24);
+  color: rgba(255, 255, 255, 1);
+  border-radius: 14px;
+  padding: 7px 16px;
+  border: 1px solid rgba(148, 148, 148, 1);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: none;
+}
+
+.profile-skip-button:hover {
+  background: rgba(255, 255, 255, 0.35);
+  transform: translateY(-1px);
+}
+
+.profile-skip-button:active {
+  transform: translateY(0);
+}
+
 .profile-role {
   font-size: 0.9rem;
   font-weight: 700;

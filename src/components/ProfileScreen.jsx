@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from "react";
 export default function ProfileScreen({ user, onUpdate, onLogout }) {
   const [form, setForm] = useState({
     name: user.name ?? "",
+    gender: user.gender ?? "",
     age: user.age ?? "",
     college: user.college ?? "",
     year: user.year ?? "",
@@ -16,6 +17,7 @@ export default function ProfileScreen({ user, onUpdate, onLogout }) {
   useEffect(() => {
     setForm({
       name: user.name ?? "",
+      gender: user.gender ?? "",
       age: user.age ?? "",
       college: user.college ?? "",
       year: user.year ?? "",
@@ -47,6 +49,7 @@ export default function ProfileScreen({ user, onUpdate, onLogout }) {
     const next = {
       ...user,
       name: form.name.trim() || user.name,
+      gender: form.gender || user.gender,
       age: form.age ? parseInt(form.age) : user.age,
       college: form.college.trim() || user.college,
       year: form.year || user.year,
@@ -84,6 +87,32 @@ export default function ProfileScreen({ user, onUpdate, onLogout }) {
             onChange={handleChange("name")}
             className="field-input"
           />
+        </label>
+
+        <label className="field">
+          <span className="field-label">Gender</span>
+          <div className="gender-options">
+            <button
+              type="button"
+              className={`gender-btn ${form.gender === "male" ? "active" : ""}`}
+              onClick={() => {
+                setForm(prev => ({ ...prev, gender: "male" }));
+                setSaved(false);
+              }}
+            >
+              Male
+            </button>
+            <button
+              type="button"
+              className={`gender-btn ${form.gender === "female" ? "active" : ""}`}
+              onClick={() => {
+                setForm(prev => ({ ...prev, gender: "female" }));
+                setSaved(false);
+              }}
+            >
+              Female
+            </button>
+          </div>
         </label>
 
         <label className="field">
