@@ -64,12 +64,13 @@ body {
 
 /* ============ App Shell ============ */
 .app-shell {
-  /* Base shell uses the target phone dimensions: 413 × 852 logical px.
-     On real phones we let it be full-width but cap to 413px, and fill the viewport height. */
+  /* Base shell uses the target phone dimensions: 395 × 852 logical px.
+     On real phones we let it be full-width but cap to 395px, and use fixed height of 852px. */
   width: 100%;
-  max-width: min(413px, 100vw);
-  min-height: 100vh;
-  min-height: -webkit-fill-available;
+  max-width: min(395px, 100vw);
+  height: 852px;
+  min-height: 852px;
+  max-height: 852px;
   background: var(--bg-dark);
   display: flex;
   flex-direction: column;
@@ -118,9 +119,9 @@ body {
     font-size: 1rem;
   }
   
-  /* Ensure profile images maintain size and crop instead of scaling down */
+  /* Ensure profile images maintain 4.5:5.5 aspect ratio (height:width = 5.5:4.5) */
   .profile-image-wrapper {
-    min-height: 350px;
+    aspect-ratio: 4.5 / 5.5;
     flex-shrink: 0;
     -webkit-flex-shrink: 0;
   }
@@ -190,9 +191,9 @@ body {
     box-sizing: border-box;
   }
   
-  /* Ensure profile images maintain size and crop instead of scaling down */
+  /* Ensure profile images maintain 4.5:5.5 aspect ratio (height:width = 5.5:4.5) */
   .profile-image-wrapper {
-    min-height: 400px;
+    aspect-ratio: 4.5 / 5.5;
     flex-shrink: 0;
   }
   
@@ -264,9 +265,9 @@ body {
     padding-bottom: calc(var(--nav-height) + 16px + env(safe-area-inset-bottom, 0));
   }
   
-  /* Ensure profile images maintain size and crop instead of scaling down */
+  /* Ensure profile images maintain 4.5:5.5 aspect ratio (height:width = 5.5:4.5) */
   .profile-image-wrapper {
-    min-height: 400px;
+    aspect-ratio: 4.5 / 5.5;
     flex-shrink: 0;
     -webkit-flex-shrink: 0;
   }
@@ -347,8 +348,8 @@ body {
   bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
-  width: min(calc(100vw - 18px), calc(413px - 18px));
-  max-width: min(calc(100vw - 18px), calc(413px - 18px));
+  width: min(calc(100vw - 18px), calc(395px - 18px));
+  max-width: min(calc(100vw - 18px), calc(395px - 18px));
   height: var(--nav-height);
   min-height: 81px;
   max-height: 81px;
@@ -550,7 +551,7 @@ body {
 .profile-edit-card {
   /* Responsive width so it fits on smaller mobile screens */
   width: 100%;
-  max-width: 416px;
+  max-width: 398px;
   border-radius: var(--radius-bubble);
   background: var(--bg-card);
   box-shadow: var(--shadow-soft);
@@ -790,11 +791,12 @@ body {
   }
 }
 
-/* Image wrapper takes 70% of available space */
+/* Image wrapper maintains 4.5:5.5 aspect ratio (height:width = 5.5:4.5) */
 .profile-image-wrapper {
   position: relative;
-  flex: 7;
-  min-height: 0;
+  width: 100%;
+  aspect-ratio: 4.5 / 5.5;
+  flex-shrink: 0;
   overflow: hidden;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
@@ -1930,9 +1932,9 @@ body {
   }
   
   .app-shell {
-    /* On desktop, render the shell as a fixed 413 × 668 phone viewport */
-    width: 413px;
-    height: 668px;
+    /* On desktop, render the shell as a fixed 395 × 852 phone viewport */
+    width: 395px;
+    height: 852px;
     border-radius: 32px;
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05),
       0 24px 60px rgba(0, 0, 0, 0.5);
@@ -1967,7 +1969,7 @@ body {
 
 .payment-modal {
   width: 100%;
-  max-width: 400px;
+  max-width: 383px;
   background: var(--bg-card);
   border-radius: var(--radius-bubble);
   padding: 28px 24px;
@@ -2299,10 +2301,11 @@ body {
 /* ============ Auth Screen ============ */
 .auth-screen {
   width: 100%;
-  max-width: 413px;
-  /* Match app-shell: fill the viewport height on mobile */
-  min-height: 100vh;
-  max-height: 100vh;
+  max-width: 395px;
+  /* Match app-shell: use fixed height of 852px */
+  height: 852px;
+  min-height: 852px;
+  max-height: 852px;
   background: var(--bg-dark);
   display: flex;
   align-items: flex-start;
@@ -2315,9 +2318,10 @@ body {
 
 @media (min-width: 500px) {
   .auth-screen {
-    /* On desktop, show auth in the same fixed 413 × 668 frame */
-    min-height: 668px;
-    max-height: 668px;
+    /* On desktop, show auth in the same fixed 395 × 852 frame */
+    height: 852px;
+    min-height: 852px;
+    max-height: 852px;
     border-radius: 32px;
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05),
       0 24px 60px rgba(0, 0, 0, 0.5);
@@ -2327,7 +2331,7 @@ body {
 
 .auth-container {
   width: 100%;
-  max-width: 357px;
+  max-width: 341px;
   margin: auto 0;
   padding: 40px 0;
 }
@@ -2719,7 +2723,7 @@ body {
 /* ============ Messages Screen ============ */
 .messages-screen {
   width: 100%;
-  max-width: min(441px, 100%);
+  max-width: min(422px, 100%);
   padding: 16px;
   overflow-x: hidden;
   overflow-y: auto;
@@ -2975,7 +2979,7 @@ body {
 /* ============ Chat Screen ============ */
 .chat-screen {
   width: 100%;
-  max-width: min(441px, 100%);
+  max-width: min(422px, 100%);
   height: 100%;
   display: flex;
   flex-direction: column;
