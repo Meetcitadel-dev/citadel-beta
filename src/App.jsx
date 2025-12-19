@@ -546,6 +546,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      {activeTab !== "chat" && (
       <nav className="nav-tabs">
         <button
           className={`nav-tab ${activeTab === "discover" ? "active" : ""}`.trim()}
@@ -612,6 +613,7 @@ export default function App() {
           <span className="nav-label">Switch</span>
         </button>
       </nav>
+      )}
 
       <main className="app-content">
         <div className="screen">
