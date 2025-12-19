@@ -40,7 +40,11 @@ export default function MessagesScreen({
           className={`messages-tab ${activeTab === "general" ? "active" : ""}`}
           onClick={() => setActiveTab("general")}
         >
-          <span className="messages-tab-icon">💬</span>
+          <span className="messages-tab-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+          </span>
           <span>General</span>
           {conversations.length > 0 && (
             <span className="messages-tab-count">{conversations.length}</span>
@@ -50,7 +54,12 @@ export default function MessagesScreen({
           className={`messages-tab ${activeTab === "requests" ? "active" : ""}`}
           onClick={() => setActiveTab("requests")}
         >
-          <span className="messages-tab-icon">📩</span>
+          <span className="messages-tab-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+              <polyline points="22,6 12,13 2,6"/>
+            </svg>
+          </span>
           <span>Requests</span>
           {pendingRequests.length > 0 && (
             <span className="messages-tab-count requests-count">{pendingRequests.length}</span>
@@ -94,7 +103,9 @@ export default function MessagesScreen({
               ))
             ) : (
               <div className="empty-state">
-                <span>💬</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="empty-state-icon">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
                 <span>No conversations yet</span>
                 <span className="empty-hint">
                   Match with someone to start chatting!
@@ -150,7 +161,10 @@ export default function MessagesScreen({
               ))
             ) : (
               <div className="empty-state">
-                <span>📩</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="empty-state-icon">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                  <polyline points="22,6 12,13 2,6"/>
+                </svg>
                 <span>No message requests</span>
                 <span className="empty-hint">
                   When someone wants to message you, it'll appear here.
