@@ -15,6 +15,7 @@ function formatTimeAgo(iso) {
 
 export default function InboxScreen({ items, matches = [], isPremium = false, onOpenPayment, onOpenChat, onSendMessageRequest }) {
   const [activeTab, setActiveTab] = useState("matches");
+  const [sentRequests, setSentRequests] = useState(new Set());
 
   return (
     <div className="inbox-list scroll-fade">
@@ -139,10 +140,11 @@ export default function InboxScreen({ items, matches = [], isPremium = false, on
               items.map((item) => (
                 <div 
                   key={item.id} 
-                  className="inbox-item inbox-item-clickable"
+                  className={`inbox-item inbox-item-clickable ${sentRequests.has(item.fromUser?.id) ? 'request-sent' : ''}`}
                   onClick={() => {
-                    if (isPremium && item.fromUser) {
+                    if (isPremium && item.fromUser && !sentRequests.has(item.fromUser.id)) {
                       onSendMessageRequest?.(item.fromUser, item.adjective);
+                      setSentRequests(prev => new Set([...prev, item.fromUser.id]));
                     }
                   }}
                 >
@@ -185,17 +187,27 @@ export default function InboxScreen({ items, matches = [], isPremium = false, on
                   </div>
                   {isPremium && item.fromUser && (
                     <button
-                      className="inbox-chat-btn inbox-request-btn"
+                      className={`inbox-chat-btn inbox-request-btn ${sentRequests.has(item.fromUser.id) ? 'request-sent-btn' : ''}`}
                       onClick={(e) => {
                         e.stopPropagation();
-                        onSendMessageRequest?.(item.fromUser, item.adjective);
+                        if (!sentRequests.has(item.fromUser.id)) {
+                          onSendMessageRequest?.(item.fromUser, item.adjective);
+                          setSentRequests(prev => new Set([...prev, item.fromUser.id]));
+                        }
                       }}
-                      title="Send message request"
+                      title={sentRequests.has(item.fromUser.id) ? "Request sent" : "Send message request"}
+                      disabled={sentRequests.has(item.fromUser.id)}
                     >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inbox-chat-icon">
-                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                        <polyline points="22,6 12,13 2,6"/>
-                      </svg>
+                      {sentRequests.has(item.fromUser.id) ? (
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inbox-chat-icon">
+                          <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                      ) : (
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inbox-chat-icon">
+                          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                          <polyline points="22,6 12,13 2,6"/>
+                        </svg>
+                      )}
                     </button>
                   )}
                 </div>
