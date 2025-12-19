@@ -137,7 +137,15 @@ export default function InboxScreen({ items, matches = [], isPremium = false, on
           <>
             {items.length > 0 ? (
               items.map((item) => (
-                <div key={item.id} className="inbox-item">
+                <div 
+                  key={item.id} 
+                  className="inbox-item inbox-item-clickable"
+                  onClick={() => {
+                    if (isPremium && item.fromUser) {
+                      onSendMessageRequest?.(item.fromUser, item.adjective);
+                    }
+                  }}
+                >
                   {isPremium ? (
                     item.fromUser?.imageUrl ? (
                       <img 

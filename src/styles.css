@@ -2234,10 +2234,22 @@ body {
 .inbox-request-btn {
   background: var(--bg-elevated);
   border: 1px solid var(--accent);
+  color: var(--accent);
 }
 
 .inbox-request-btn:hover {
   background: var(--accent);
+  color: #000;
+}
+
+.inbox-item-clickable {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.inbox-item-clickable:hover {
+  background: var(--bg-elevated);
+  transform: translateX(4px);
 }
 
 /* ============ Messages Screen ============ */

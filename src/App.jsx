@@ -430,6 +430,22 @@ export default function App() {
   // Send a message
   const handleSendMessage = useCallback((text) => {
     if (!chatUser || !loggedInUser) return;
+    
+    // Check if they're matched or have an accepted request
+    const isMatched = matches.some(m => 
+      (m.user1Id === loggedInUser.id && m.user2Id === chatUser.id) ||
+      (m.user1Id === chatUser.id && m.user2Id === loggedInUser.id)
+    );
+    
+    const hasAcceptedRequest = messageRequests.some(r =>
+      ((r.fromUserId === loggedInUser.id && r.toUserId === chatUser.id) ||
+       (r.fromUserId === chatUser.id && r.toUserId === loggedInUser.id)) &&
+      r.status === 'accepted'
+    );
+    
+    // Only allow sending messages if matched or request accepted
+    if (!isMatched && !hasAcceptedRequest) return;
+    
     const newMsg = {
       id: `msg-${Date.now()}-${Math.random().toString(16).slice(2)}`,
       fromUserId: loggedInUser.id,
@@ -438,7 +454,7 @@ export default function App() {
       createdAt: new Date().toISOString()
     };
     setMessages(prev => [...prev, newMsg]);
-  }, [chatUser, loggedInUser]);
+  }, [chatUser, loggedInUser, matches, messageRequests]);
 
   // Send a message request (from vibes/likes)
   const handleSendMessageRequest = useCallback((toUser, adjective) => {
