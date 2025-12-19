@@ -24,12 +24,21 @@
   --nav-height: 81px;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  -moz-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   font-family: 'Nunito', system-ui, -apple-system, sans-serif;
   background: var(--bg-dark);
   color: var(--text-primary);
   min-height: 100vh;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #root {
@@ -40,20 +49,26 @@ body {
   /* Use padding instead of fixed margins so small screens don't overflow */
   padding: 0 16px;
   margin: 0 auto;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 /* ============ App Shell ============ */
 .app-shell {
-  /* Base shell uses the target phone dimensions: 393 × 852 logical px.
-     On real phones we let it be full-width but cap to 393px, and fill the viewport height. */
+  /* Base shell uses the target phone dimensions: 413 × 852 logical px.
+     On real phones we let it be full-width but cap to 413px, and fill the viewport height. */
   width: 100%;
-  max-width: 393px;
+  max-width: 413px;
   min-height: 100vh;
+  min-height: -webkit-fill-available;
   background: var(--bg-dark);
   display: flex;
   flex-direction: column;
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  margin: 0 auto;
+  padding: 0;
 }
 
 /* Mobile-specific tightening so the layout fits better on short viewports
@@ -92,6 +107,65 @@ body {
     padding: 10px 8px;
     font-size: 1rem;
   }
+  
+  /* Ensure profile images maintain size and crop instead of scaling down */
+  .profile-image-wrapper {
+    min-height: 350px;
+    flex-shrink: 0;
+    -webkit-flex-shrink: 0;
+  }
+  
+  .profile-image {
+    position: absolute !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    min-width: 100% !important;
+    min-height: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    -webkit-object-fit: cover !important;
+    -moz-object-fit: cover !important;
+    object-position: bottom !important;
+    transform: scale(1.15) translateZ(0) !important;
+    -webkit-transform: scale(1.15) translateZ(0) !important;
+    transform-origin: bottom center !important;
+    -webkit-transform-origin: bottom center !important;
+  }
+}
+
+/* Mobile-first responsive styles for all mobile browsers */
+@media screen and (max-width: 480px), screen and (max-device-width: 480px) {
+  #root {
+    padding: 0 8px;
+  }
+  
+  .app-shell {
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Ensure profile images maintain size and crop instead of scaling down */
+  .profile-image-wrapper {
+    min-height: 400px;
+    flex-shrink: 0;
+  }
+  
+  .profile-image {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: 100%;
+    min-width: 100%;
+    min-height: 100%;
+    object-fit: cover;
+    object-position: bottom;
+    transform: scale(1.2);
+    transform-origin: bottom center;
+    -webkit-transform-origin: bottom center;
+  }
 }
 
 /* Narrow-phone specific layout tweaks (keep localhost / desktop intact) */
@@ -109,14 +183,21 @@ body {
   /* Make the bottom navigation bar adapt better to very narrow widths
      and avoid clashing with mobile browser toolbars. */
   .nav-tabs {
-    bottom: env(safe-area-inset-bottom, 0);
-    margin: 0 9px 12px 9px;
+    position: fixed;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0));
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 0;
     padding: 6px 8px;
     width: calc(100% - 18px);
+    max-width: calc(100vw - 18px);
     height: var(--nav-height);
     min-height: 72px;
     max-height: 72px;
     gap: 4px;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   }
   
   .nav-tab {
@@ -135,6 +216,32 @@ body {
   
   .app-content {
     padding-bottom: calc(var(--nav-height) + 16px + env(safe-area-inset-bottom, 0));
+  }
+  
+  /* Ensure profile images maintain size and crop instead of scaling down */
+  .profile-image-wrapper {
+    min-height: 400px;
+    flex-shrink: 0;
+    -webkit-flex-shrink: 0;
+  }
+  
+  .profile-image {
+    position: absolute !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-width: 100% !important;
+    min-height: 100% !important;
+    object-fit: cover !important;
+    -webkit-object-fit: cover !important;
+    -moz-object-fit: cover !important;
+    object-position: bottom !important;
+    transform: scale(1.3) translateZ(0) !important;
+    -webkit-transform: scale(1.3) translateZ(0) !important;
+    transform-origin: bottom center !important;
+    -webkit-transform-origin: bottom center !important;
   }
 }
 
@@ -188,27 +295,27 @@ body {
 .nav-tabs {
   display: flex;
   padding: 8px 12px;
-  margin: 0 9px 16px 9px;
+  margin: 0;
   gap: 6px;
-  position: absolute;
-  top: 672px;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
   width: calc(100% - 18px);
+  max-width: calc(413px - 18px);
   height: var(--nav-height);
   min-height: 81px;
   max-height: 81px;
   z-index: 20;
   background: rgba(19, 19, 24, 0.95);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(28, 28, 36, 1);
   border-radius: 24px;
   align-items: center;
   justify-content: space-around;
   box-sizing: border-box;
-  box-shadow: none;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
 .nav-tab {
@@ -373,20 +480,26 @@ body {
   background: var(--bg-dark);
   padding: 0 0 calc(var(--nav-height) + 16px) 0;
   margin: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
 }
 
 .screen {
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: visible;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  min-height: 0;
 }
 
 .profile-edit-card {
   /* Responsive width so it fits on smaller mobile screens */
   width: 100%;
-  max-width: 396px;
+  max-width: 416px;
   border-radius: var(--radius-bubble);
   background: var(--bg-card);
   box-shadow: var(--shadow-soft);
@@ -572,11 +685,14 @@ body {
 /* ============ Profile Card ============ */
 .profile-card {
   background: var(--bg-card);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   display: flex;
   flex-direction: column;
   flex: 1;
   margin: 8px;
+  min-height: 0;
 }
 
 .profile-card.fade-in {
@@ -626,15 +742,36 @@ body {
   flex: 7;
   min-height: 0;
   overflow: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
 }
 
 .profile-image {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: bottom;
   filter: saturate(1.05) brightness(0.95);
   display: block;
   box-shadow: inset 0px 4px 12px 84.57px rgba(0, 0, 0, 0.15);
+  min-width: 100%;
+  min-height: 100%;
+  -webkit-object-fit: cover;
+  -moz-object-fit: cover;
+  -ms-object-fit: cover;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: scale(1.05) translateZ(0);
+  -webkit-transform: scale(1.05) translateZ(0);
+  transform-origin: bottom center;
+  -webkit-transform-origin: bottom center;
+  transition: transform 0.3s ease-out;
 }
 
 .profile-gradient-overlay {
@@ -952,7 +1089,10 @@ body {
   flex-direction: column;
   gap: 12px;
   box-shadow: var(--shadow-soft);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  min-height: 0;
 }
 
 .inbox-header {
@@ -1247,10 +1387,12 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   max-height: calc(100vh - 180px);
   box-shadow: var(--shadow-soft);
-  overflow: hidden;
+  min-height: 0;
 }
 
 .account-header {
@@ -1718,8 +1860,8 @@ body {
   }
   
   .app-shell {
-    /* On desktop, render the shell as a fixed 393 × 668 phone viewport */
-    width: 393px;
+    /* On desktop, render the shell as a fixed 413 × 668 phone viewport */
+    width: 413px;
     height: 668px;
     border-radius: 32px;
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05),
@@ -1755,7 +1897,7 @@ body {
 
 .payment-modal {
   width: 100%;
-  max-width: 380px;
+  max-width: 400px;
   background: var(--bg-card);
   border-radius: var(--radius-bubble);
   padding: 28px 24px;
@@ -2087,7 +2229,7 @@ body {
 /* ============ Auth Screen ============ */
 .auth-screen {
   width: 100%;
-  max-width: 393px;
+  max-width: 413px;
   /* Match app-shell: fill the viewport height on mobile */
   min-height: 100vh;
   max-height: 100vh;
@@ -2103,7 +2245,7 @@ body {
 
 @media (min-width: 500px) {
   .auth-screen {
-    /* On desktop, show auth in the same fixed 393 × 668 frame */
+    /* On desktop, show auth in the same fixed 413 × 668 frame */
     min-height: 668px;
     max-height: 668px;
     border-radius: 32px;
@@ -2115,7 +2257,7 @@ body {
 
 .auth-container {
   width: 100%;
-  max-width: 340px;
+  max-width: 357px;
   margin: auto 0;
   padding: 40px 0;
 }
@@ -2379,7 +2521,9 @@ body {
 /* ============ Profile Scrollable ============ */
 .profile-scrollable {
   max-height: calc(100vh - 120px);
+  overflow-x: hidden;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .profile-scrollable::-webkit-scrollbar {
@@ -2505,8 +2649,12 @@ body {
 /* ============ Messages Screen ============ */
 .messages-screen {
   width: 100%;
-  max-width: 420px;
+  max-width: 441px;
   padding: 16px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  min-height: 0;
 }
 
 .messages-header {
@@ -2756,11 +2904,15 @@ body {
 /* ============ Chat Screen ============ */
 .chat-screen {
   width: 100%;
-  max-width: 420px;
+  max-width: 441px;
   height: 100%;
   display: flex;
   flex-direction: column;
   background: var(--bg-base);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  min-height: 0;
 }
 
 .chat-header {
