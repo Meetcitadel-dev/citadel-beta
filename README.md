@@ -18,11 +18,20 @@ Vibe Tags is a small Vite + React web app that lets college students send short,
 ### Tech Stack
 
 - **Frontend**: React 18
+- **Backend**: Node.js + Express
+- **Database**: MongoDB with Mongoose
 - **Build tool**: Vite
 - **Styling**: Hand-written CSS in `src/styles.css`
-- **Data**: Local mock data in `src/data/users.js` and adjective generator in `src/data/adjectives.js`
+- **Authentication**: JWT tokens
 
 ### Getting Started
+
+#### Prerequisites
+
+- Node.js (v16 or higher)
+- MongoDB (local installation or MongoDB Atlas account)
+
+#### Setup
 
 1. **Install dependencies**
 
@@ -30,21 +39,59 @@ Vibe Tags is a small Vite + React web app that lets college students send short,
 npm install
 ```
 
-2. **Run the dev server**
+2. **Configure environment variables**
 
+Create a `.env` file in the root directory:
+
+```bash
+PORT=3001
+MONGODB_URI=mongodb://localhost:27017/citadel-app
+JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+VITE_API_URL=http://localhost:3001/api
+```
+
+For MongoDB Atlas, use your connection string:
+```
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/citadel-app
+```
+
+3. **Seed the database** (optional - populates with initial user data)
+
+```bash
+node server/seed.js
+```
+
+4. **Start the backend server**
+
+In one terminal:
+```bash
+npm run server:dev
+```
+
+5. **Start the frontend dev server**
+
+In another terminal:
 ```bash
 npm run dev
 ```
 
-Vite will print a local URL (by default something like `http://localhost:5173`) which you can open in your browser.
+The frontend will be available at `http://localhost:5173` and the backend API at `http://localhost:3001/api`.
 
-3. **Build for production**
+#### Production Build
+
+1. **Build the frontend**
 
 ```bash
 npm run build
 ```
 
-4. **Preview the production build**
+2. **Start the backend server**
+
+```bash
+npm run server
+```
+
+3. **Preview the production build** (optional)
 
 ```bash
 npm run preview
@@ -61,9 +108,40 @@ npm run preview
 - `src/data/users.js` – Mock college user profiles.  
 - `src/data/adjectives.js` – Gender-aware adjective generator.
 
+### Backend API
+
+The backend provides RESTful API endpoints for:
+- **Authentication**: Register, login, get current user
+- **Users**: Get all users, get user by ID, update profile, update premium status
+- **Notifications**: Send/receive vibes/adjectives, get today's count
+- **Matches**: Get matches, get match count
+- **Messages**: Send messages, get conversations, mark as read
+- **Message Requests**: Create/accept/decline message requests
+
+See `server/README.md` for detailed API documentation.
+
+### Project Structure
+
+**Frontend:**
+- `src/main.jsx` – React entry point
+- `src/App.jsx` – Top-level layout and navigation
+- `src/components/` – React components (DiscoverScreen, InboxScreen, etc.)
+- `src/utils/api.js` – API client for backend communication
+- `src/styles.css` – Global UI styling
+- `src/data/` – Local data utilities (can be migrated to use API)
+
+**Backend:**
+- `server/index.js` – Express server entry point
+- `server/models/` – MongoDB models (User, Notification, Match, Message, MessageRequest)
+- `server/routes/` – API route handlers
+- `server/middleware/` – Authentication middleware
+- `server/seed.js` – Database seeding script
+
 ### Notes
 
-- All data is in-memory; refreshing the page will reset notifications and follows.  
-- This is a prototype meant for quick iteration on the interaction and visual design, not a production-ready app.
+- The app now uses MongoDB for persistent data storage
+- Authentication is handled via JWT tokens
+- All API endpoints require authentication (except register/login)
+- See `server/README.md` for detailed backend documentation
 
 

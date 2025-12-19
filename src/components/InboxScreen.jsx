@@ -27,10 +27,9 @@ export default function InboxScreen({ items, matches = [], isPremium = false, on
           </div>
         </div>
         {isPremium ? (
-          <div className="badge premium-badge">✨ Premium</div>
+          <div className="badge premium-badge">Premium</div>
         ) : (
           <button className="subscribe-btn" onClick={onOpenPayment}>
-            <span className="subscribe-icon">👑</span>
             Unlock
           </button>
         )}
@@ -54,7 +53,6 @@ export default function InboxScreen({ items, matches = [], isPremium = false, on
           className={`vibes-tab ${activeTab === "matches" ? "active" : ""}`}
           onClick={() => setActiveTab("matches")}
         >
-          <span className="vibes-tab-icon">💫</span>
           <span>Matches</span>
           {matches.length > 0 && (
             <span className="vibes-tab-count">{matches.length}</span>
@@ -64,7 +62,6 @@ export default function InboxScreen({ items, matches = [], isPremium = false, on
           className={`vibes-tab ${activeTab === "vibes" ? "active" : ""}`}
           onClick={() => setActiveTab("vibes")}
         >
-          <span className="vibes-tab-icon">💚</span>
           <span>Likes</span>
           {items.length > 0 && (
             <span className="vibes-tab-count">{items.length}</span>
@@ -88,7 +85,7 @@ export default function InboxScreen({ items, matches = [], isPremium = false, on
                       />
                     ) : (
                       <div className="match-icon-wrapper">
-                        <span className="match-icon">💫</span>
+                        <span className="match-icon"></span>
                       </div>
                     )
                   ) : (
@@ -135,7 +132,6 @@ export default function InboxScreen({ items, matches = [], isPremium = false, on
               ))
             ) : (
               <div className="empty-state" style={{ marginTop: 8 }}>
-                <span>💫</span>
                 <span>No matches yet</span>
                 <span style={{ fontSize: "0.8rem" }}>
                   When you and someone pick the same vibe, you&apos;ll match!
@@ -227,7 +223,6 @@ export default function InboxScreen({ items, matches = [], isPremium = false, on
               ))
             ) : (
               <div className="empty-state" style={{ marginTop: 8 }}>
-                <span>✨</span>
                 <span>No likes yet</span>
                 <span style={{ fontSize: "0.8rem" }}>
                   Start exploring profiles — likes will appear here.
@@ -240,7 +235,6 @@ export default function InboxScreen({ items, matches = [], isPremium = false, on
         {/* Subscription CTA */}
         {!isPremium && ((activeTab === "matches" && matches.length > 0) || (activeTab === "vibes" && items.length > 0)) && (
           <div className="subscription-cta">
-            <span className="cta-icon">🔒</span>
             <span className="cta-text">
               Want to see who&apos;s vibing with you?
             </span>

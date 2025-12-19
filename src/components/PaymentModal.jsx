@@ -65,7 +65,6 @@ export default function PaymentModal({ isOpen, onClose, onSuccess }) {
         </button>
 
         <div className="payment-header">
-          <div className="payment-icon">👑</div>
           <h2 className="payment-title">Unlock Premium</h2>
           <p className="payment-subtitle">See who&apos;s vibing with you</p>
         </div>
@@ -82,6 +81,10 @@ export default function PaymentModal({ isOpen, onClose, onSuccess }) {
           <div className="payment-feature">
             <span className="feature-icon">✓</span>
             <span>Unlimited matches</span>
+          </div>
+          <div className="payment-feature">
+            <span className="feature-icon">✓</span>
+            <span>Unlimited vibes</span>
           </div>
         </div>
 
@@ -174,7 +177,7 @@ export default function PaymentModal({ isOpen, onClose, onSuccess }) {
         </form>
 
         <div className="payment-footer">
-          <span className="secure-badge">🔒 Secure Payment</span>
+          <span className="secure-badge">Secure Payment</span>
         </div>
       </div>
     </div>
