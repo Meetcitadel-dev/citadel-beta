@@ -13,7 +13,7 @@ function formatTimeAgo(iso) {
   return `${diffD}d ago`;
 }
 
-export default function InboxScreen({ items, matches = [], isPremium = false, onOpenPayment }) {
+export default function InboxScreen({ items, matches = [], isPremium = false, onOpenPayment, onOpenChat, onSendMessageRequest }) {
   const [activeTab, setActiveTab] = useState("matches");
 
   return (
@@ -104,6 +104,18 @@ export default function InboxScreen({ items, matches = [], isPremium = false, on
                       {formatTimeAgo(match.createdAt)}
                     </div>
                   </div>
+                  {isPremium && match.otherUser && (
+                    <button
+                      className="inbox-chat-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenChat?.(match.otherUser);
+                      }}
+                      title="Message"
+                    >
+                      💬
+                    </button>
+                  )}
                 </div>
               ))
             ) : (
@@ -161,6 +173,18 @@ export default function InboxScreen({ items, matches = [], isPremium = false, on
                       {formatTimeAgo(item.createdAt)}
                     </div>
                   </div>
+                  {isPremium && item.fromUser && (
+                    <button
+                      className="inbox-chat-btn inbox-request-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSendMessageRequest?.(item.fromUser, item.adjective);
+                      }}
+                      title="Send message request"
+                    >
+                      ✉️
+                    </button>
+                  )}
                 </div>
               ))
             ) : (

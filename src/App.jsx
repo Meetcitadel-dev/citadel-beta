@@ -5,6 +5,8 @@ import db from "./data/db.js";
 import AuthScreen from "./components/AuthScreen.jsx";
 import DiscoverScreen from "./components/DiscoverScreen.jsx";
 import InboxScreen from "./components/InboxScreen.jsx";
+import MessagesScreen from "./components/MessagesScreen.jsx";
+import ChatScreen from "./components/ChatScreen.jsx";
 import AccountSwitcherScreen from "./components/AccountSwitcherScreen.jsx";
 import ProfileScreen from "./components/ProfileScreen.jsx";
 import PaymentModal from "./components/PaymentModal.jsx";
@@ -17,9 +19,12 @@ export default function App() {
   const [users, setUsers] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [matches, setMatches] = useState([]);
+  const [messages, setMessages] = useState([]);
+  const [messageRequests, setMessageRequests] = useState([]);
   const [loggedInUserId, setLoggedInUserId] = useState(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
+  const [chatUser, setChatUser] = useState(null);
 
   // Initialize database and load data on mount
   useEffect(() => {
@@ -27,6 +32,8 @@ export default function App() {
     setUsers(db.users.getAll());
     setNotifications(db.notifications.getAll());
     setMatches(db.matches.getAll());
+    setMessages(db.messages.getAll());
+    setMessageRequests(db.messageRequests.getAll());
     
     // Check if user is already authenticated
     const authUser = localStorage.getItem('citadel_auth_user');
@@ -141,6 +148,20 @@ export default function App() {
       localStorage.setItem('citadel_matches', JSON.stringify(matches));
     }
   }, [matches, isLoaded]);
+
+  // Save messages to database when they change
+  useEffect(() => {
+    if (isLoaded) {
+      localStorage.setItem('citadel_messages', JSON.stringify(messages));
+    }
+  }, [messages, isLoaded]);
+
+  // Save message requests to database when they change
+  useEffect(() => {
+    if (isLoaded) {
+      localStorage.setItem('citadel_message_requests', JSON.stringify(messageRequests));
+    }
+  }, [messageRequests, isLoaded]);
 
   // Save current user ID when it changes
   useEffect(() => {
@@ -320,10 +341,139 @@ export default function App() {
     ).length;
   }, [matches, currentProfile]);
 
+  // Get conversations for messages screen (matches + accepted requests)
+  const conversations = useMemo(() => {
+    if (!loggedInUser) return [];
+    
+    // Get all matches as conversations
+    const matchConvos = matchItems.map(m => {
+      // Get last message for this conversation
+      const convMessages = messages.filter(msg =>
+        (msg.fromUserId === loggedInUser.id && msg.toUserId === m.otherUser?.id) ||
+        (msg.fromUserId === m.otherUser?.id && msg.toUserId === loggedInUser.id)
+      );
+      const lastMsg = convMessages[convMessages.length - 1];
+      return {
+        ...m,
+        type: 'match',
+        lastMessage: lastMsg?.text,
+        lastMessageAt: lastMsg?.createdAt
+      };
+    });
+
+    // Get accepted message requests as conversations
+    const acceptedRequests = messageRequests
+      .filter(r => r.status === 'accepted' && (r.fromUserId === loggedInUser.id || r.toUserId === loggedInUser.id))
+      .map(r => {
+        const otherUserId = r.fromUserId === loggedInUser.id ? r.toUserId : r.fromUserId;
+        const otherUser = users.find(u => u.id === otherUserId);
+        const convMessages = messages.filter(msg =>
+          (msg.fromUserId === loggedInUser.id && msg.toUserId === otherUserId) ||
+          (msg.fromUserId === otherUserId && msg.toUserId === loggedInUser.id)
+        );
+        const lastMsg = convMessages[convMessages.length - 1];
+        return {
+          ...r,
+          type: 'request',
+          otherUser,
+          lastMessage: lastMsg?.text,
+          lastMessageAt: lastMsg?.createdAt
+        };
+      })
+      // Filter out duplicates (if already in matches)
+      .filter(r => !matchItems.find(m => m.otherUser?.id === r.otherUser?.id));
+
+    return [...matchConvos, ...acceptedRequests].sort((a, b) => {
+      const aTime = a.lastMessageAt || a.createdAt;
+      const bTime = b.lastMessageAt || b.createdAt;
+      return new Date(bTime) - new Date(aTime);
+    });
+  }, [loggedInUser, matchItems, messageRequests, messages, users]);
+
+  // Get pending message requests for the logged-in user
+  const pendingRequests = useMemo(() => {
+    if (!loggedInUser) return [];
+    return messageRequests
+      .filter(r => r.toUserId === loggedInUser.id)
+      .map(r => ({
+        ...r,
+        fromUser: users.find(u => u.id === r.fromUserId)
+      }));
+  }, [loggedInUser, messageRequests, users]);
+
+  // Get messages for current chat
+  const chatMessages = useMemo(() => {
+    if (!chatUser || !loggedInUser) return [];
+    return messages.filter(m =>
+      (m.fromUserId === loggedInUser.id && m.toUserId === chatUser.id) ||
+      (m.fromUserId === chatUser.id && m.toUserId === loggedInUser.id)
+    ).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  }, [chatUser, loggedInUser, messages]);
+
   const handleSwitchAccount = (userId) => {
     setLoggedInUserId(userId);
     setCurrentIndex(0);
   };
+
+  // Open chat with a user
+  const handleOpenChat = useCallback((user) => {
+    setChatUser(user);
+    setActiveTab("chat");
+  }, []);
+
+  // Close chat and go back to messages
+  const handleCloseChat = useCallback(() => {
+    setChatUser(null);
+    setActiveTab("messages");
+  }, []);
+
+  // Send a message
+  const handleSendMessage = useCallback((text) => {
+    if (!chatUser || !loggedInUser) return;
+    const newMsg = {
+      id: `msg-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      fromUserId: loggedInUser.id,
+      toUserId: chatUser.id,
+      text,
+      createdAt: new Date().toISOString()
+    };
+    setMessages(prev => [...prev, newMsg]);
+  }, [chatUser, loggedInUser]);
+
+  // Send a message request (from vibes/likes)
+  const handleSendMessageRequest = useCallback((toUser, adjective) => {
+    if (!loggedInUser) return;
+    const newRequest = {
+      id: `req-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      fromUserId: loggedInUser.id,
+      toUserId: toUser.id,
+      adjective,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    setMessageRequests(prev => {
+      // Check if already exists
+      const exists = prev.find(r => 
+        r.fromUserId === loggedInUser.id && r.toUserId === toUser.id
+      );
+      if (exists) return prev;
+      return [newRequest, ...prev];
+    });
+  }, [loggedInUser]);
+
+  // Accept a message request
+  const handleAcceptRequest = useCallback((requestId) => {
+    setMessageRequests(prev => 
+      prev.map(r => r.id === requestId ? { ...r, status: 'accepted' } : r)
+    );
+  }, []);
+
+  // Decline a message request
+  const handleDeclineRequest = useCallback((requestId) => {
+    setMessageRequests(prev => 
+      prev.map(r => r.id === requestId ? { ...r, status: 'declined' } : r)
+    );
+  }, []);
 
   // Show loading state while database initializes
   if (!isLoaded) {
@@ -380,6 +530,15 @@ export default function App() {
           <span className="nav-label">Inbox</span>
         </button>
         <button
+          className={`nav-tab ${activeTab === "messages" || activeTab === "chat" ? "active" : ""}`.trim()}
+          onClick={() => { setChatUser(null); setActiveTab("messages"); }}
+        >
+          <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          <span className="nav-label">Messages</span>
+        </button>
+        <button
           className={`nav-tab ${activeTab === "profile" ? "active" : ""}`.trim()}
           onClick={() => setActiveTab("profile")}
         >
@@ -431,6 +590,27 @@ export default function App() {
               currentUserId={loggedInUserId}
               isPremium={isPremium}
               onOpenPayment={handleOpenPayment}
+              onOpenChat={handleOpenChat}
+              onSendMessageRequest={handleSendMessageRequest}
+            />
+          )}
+          {activeTab === "messages" && (
+            <MessagesScreen
+              conversations={conversations}
+              requests={pendingRequests}
+              currentUserId={loggedInUserId}
+              onOpenChat={handleOpenChat}
+              onAcceptRequest={handleAcceptRequest}
+              onDeclineRequest={handleDeclineRequest}
+            />
+          )}
+          {activeTab === "chat" && chatUser && (
+            <ChatScreen
+              otherUser={chatUser}
+              messages={chatMessages}
+              currentUserId={loggedInUserId}
+              onSendMessage={handleSendMessage}
+              onBack={handleCloseChat}
             />
           )}
           {activeTab === "profile" && loggedInUser && (
