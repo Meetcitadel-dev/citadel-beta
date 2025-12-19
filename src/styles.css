@@ -50,8 +50,9 @@ body {
 
 #root {
   min-height: 100vh;
+  height: 100vh;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
   /* Use padding instead of fixed margins so small screens don't overflow */
   padding: 0;
@@ -87,7 +88,7 @@ body {
 @media (max-height: 750px) {
   .app-content {
     /* Slightly less bottom padding so the card + buttons fit above the nav */
-    padding-bottom: 80px;
+    padding-bottom: 0px;
   }
 
   :root {
@@ -117,6 +118,7 @@ body {
   .adjective-button {
     padding: 10px 8px;
     font-size: 1rem;
+    min-height: 85px;
   }
   
   /* Ensure profile images maintain 4.5:5.5 aspect ratio (height:width = 5.5:4.5) */
@@ -137,11 +139,11 @@ body {
     object-fit: cover !important;
     -webkit-object-fit: cover !important;
     -moz-object-fit: cover !important;
-    object-position: bottom !important;
-    transform: scale(1.15) translateZ(0) !important;
-    -webkit-transform: scale(1.15) translateZ(0) !important;
-    transform-origin: bottom center !important;
-    -webkit-transform-origin: bottom center !important;
+    object-position: center bottom !important;
+    transform: scale(1.08) translateZ(0) !important;
+    -webkit-transform: scale(1.08) translateZ(0) !important;
+    transform-origin: center bottom !important;
+    -webkit-transform-origin: center bottom !important;
   }
 }
 
@@ -152,11 +154,17 @@ body {
     width: 100%;
     max-width: 100vw;
     overflow-x: hidden;
+    align-items: stretch;
+    min-height: 100vh;
+    height: 100vh;
   }
   
   .app-shell {
     width: 100%;
     max-width: 100vw;
+    height: 100vh;
+    min-height: 100vh;
+    max-height: 100vh;
     margin: 0;
   }
   
@@ -175,6 +183,9 @@ body {
   .profile-card {
     width: calc(100% - 16px);
     max-width: calc(100% - 16px);
+    margin: 8px 8px 126px 8px;
+    margin-bottom: 126px;
+    overflow-y: visible;
     box-sizing: border-box;
   }
   
@@ -207,15 +218,34 @@ body {
     min-width: 100%;
     min-height: 100%;
     object-fit: cover;
-    object-position: bottom;
-    transform: scale(1.2);
-    transform-origin: bottom center;
-    -webkit-transform-origin: bottom center;
+    object-position: center bottom;
+    transform: scale(1.05);
+    transform-origin: center bottom;
+    -webkit-transform-origin: center bottom;
   }
 }
 
 /* Narrow-phone specific layout tweaks (keep localhost / desktop intact) */
 @media (max-width: 430px) {
+  #root {
+    padding: 0;
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+    align-items: stretch;
+    min-height: 100vh;
+    height: 100vh;
+  }
+  
+  .app-shell {
+    width: 100%;
+    max-width: 100vw;
+    height: 100vh;
+    min-height: 100vh;
+    max-height: 100vh;
+    margin: 0;
+  }
+  
   /* Let the skip button sit naturally in the meta block on small screens */
   .profile-skip-wrapper {
     position: static;
@@ -235,8 +265,8 @@ body {
     transform: translateX(-50%);
     margin: 0;
     padding: 6px 8px;
-    width: min(calc(100vw - 18px), calc(100% - 18px));
-    max-width: min(calc(100vw - 18px), calc(100% - 18px));
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
     height: var(--nav-height);
     min-height: 72px;
     max-height: 72px;
@@ -244,6 +274,15 @@ body {
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    box-sizing: border-box;
+  }
+  
+  .profile-card {
+    width: calc(100% - 12px);
+    max-width: calc(100% - 12px);
+    margin: 6px 6px 126px 6px;
+    margin-bottom: 126px;
+    overflow-y: visible;
     box-sizing: border-box;
   }
   
@@ -262,7 +301,16 @@ body {
   }
   
   .app-content {
-    padding-bottom: calc(var(--nav-height) + 16px + env(safe-area-inset-bottom, 0));
+    padding-bottom: max(0px, calc(var(--nav-height) + 12px + env(safe-area-inset-bottom, 0) - 100px));
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  
+  .screen {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
   
   /* Ensure profile images maintain 4.5:5.5 aspect ratio (height:width = 5.5:4.5) */
@@ -284,11 +332,62 @@ body {
     object-fit: cover !important;
     -webkit-object-fit: cover !important;
     -moz-object-fit: cover !important;
-    object-position: bottom !important;
-    transform: scale(1.3) translateZ(0) !important;
-    -webkit-transform: scale(1.3) translateZ(0) !important;
-    transform-origin: bottom center !important;
-    -webkit-transform-origin: bottom center !important;
+    object-position: center bottom !important;
+    transform: scale(1.05) translateZ(0) !important;
+    -webkit-transform: scale(1.05) translateZ(0) !important;
+    transform-origin: center bottom !important;
+    -webkit-transform-origin: center bottom !important;
+  }
+  
+  .adjective-section {
+    width: 100%;
+    max-width: 100%;
+    padding: 0 6px;
+    overflow: visible;
+    position: relative;
+    z-index: 10;
+    box-sizing: border-box;
+  }
+  
+  .adjective-grid {
+    width: 100%;
+    max-width: 100%;
+    padding: 8px 4px;
+    gap: 6px;
+    overflow: visible;
+    box-sizing: border-box;
+  }
+  
+  .adjective-button {
+    width: 100%;
+    max-width: 100%;
+    padding: 16px 8px;
+    font-size: 0.95rem;
+    min-height: 90px;
+    box-sizing: border-box;
+  }
+  
+  .profile-topbar {
+    left: 6px;
+    right: 6px;
+    top: 12px;
+  }
+  
+  .profile-meta {
+    padding: 16px 12px 14px;
+    left: 0;
+    right: 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  
+  .profile-name {
+    font-size: 1.6rem;
+  }
+  
+  .profile-role,
+  .profile-college-line {
+    font-size: 0.85rem;
   }
 }
 
@@ -525,11 +624,10 @@ body {
   position: relative;
   z-index: 5;
   background: var(--bg-dark);
-  padding: 0 0 calc(var(--nav-height) + 16px) 0;
+  padding: 0 0 max(0px, calc(var(--nav-height) + 16px - 100px)) 0;
   margin: 0;
   overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow-y: hidden;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
@@ -539,12 +637,14 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow-x: visible;
+  overflow-y: visible;
+  overflow: visible;
   min-height: 0;
   width: 100%;
   max-width: 100%;
+  margin-bottom: 0;
+  padding-bottom: 0;
   box-sizing: border-box;
 }
 
@@ -738,12 +838,12 @@ body {
 .profile-card {
   background: var(--bg-card);
   overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow-y: visible;
   display: flex;
   flex-direction: column;
   flex: 1;
-  margin: 8px;
+  margin: 8px 8px 126px 8px;
+  margin-bottom: 126px;
   min-height: 0;
   width: calc(100% - 16px);
   max-width: calc(100% - 16px);
@@ -810,7 +910,7 @@ body {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: bottom;
+  object-position: center bottom;
   filter: saturate(1.05) brightness(0.95);
   display: block;
   box-shadow: inset 0px 4px 12px 84.57px rgba(0, 0, 0, 0.15);
@@ -823,10 +923,10 @@ body {
   image-rendering: crisp-edges;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  transform: scale(1.05) translateZ(0);
-  -webkit-transform: scale(1.05) translateZ(0);
-  transform-origin: bottom center;
-  -webkit-transform-origin: bottom center;
+  transform: scale(1.02) translateZ(0);
+  -webkit-transform: scale(1.02) translateZ(0);
+  transform-origin: center bottom;
+  -webkit-transform-origin: center bottom;
   transition: transform 0.3s ease-out;
 }
 
@@ -1057,6 +1157,8 @@ body {
   gap: 0px;
   margin: 0;
   height: auto;
+  position: relative;
+  z-index: 10;
   box-sizing: border-box;
 }
 
@@ -1068,7 +1170,7 @@ body {
   height: auto;
   padding: 10px;
   margin: 0;
-  overflow: hidden;
+  overflow: visible;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
@@ -1929,12 +2031,17 @@ body {
 @media (min-width: 500px) {
   #root {
     padding: 20px;
+    align-items: center;
+    min-height: 100vh;
+    height: auto;
   }
   
   .app-shell {
     /* On desktop, render the shell as a fixed 395 × 852 phone viewport */
     width: 395px;
     height: 852px;
+    min-height: 852px;
+    max-height: 852px;
     border-radius: 32px;
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05),
       0 24px 60px rgba(0, 0, 0, 0.5);
@@ -1943,9 +2050,11 @@ body {
   
   .profile-card {
     border-radius: var(--radius-bubble);
-    margin: 8px;
+    margin: 8px 8px 126px 8px;
+    margin-bottom: 126px;
     flex: 1;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: visible;
   }
   
   .profile-image-wrapper {
