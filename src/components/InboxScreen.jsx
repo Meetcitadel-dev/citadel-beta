@@ -44,7 +44,7 @@ export default function InboxScreen({ items, matches = [], isPremium = false, on
           <line x1="12" y1="8" x2="12.01" y2="8"/>
         </svg>
         <div className="info-text">
-          <strong>Vibes and matches expire in 24 hours.</strong> Make sure to check your inbox before they disappear. New ones arrive tomorrow!
+          <strong>Vibes and matches expire in 24 hours.</strong> Message or send message requests to people you want to connect with before they disappear. New ones arrive tomorrow!
         </div>
       </div>
 
