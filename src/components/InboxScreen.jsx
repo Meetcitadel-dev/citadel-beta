@@ -142,8 +142,8 @@ export default function InboxScreen({ items, matches = [], isPremium = false, on
                   key={item.id} 
                   className={`inbox-item inbox-item-clickable ${sentRequests.has(item.fromUser?.id) ? 'request-sent' : ''}`}
                   onClick={() => {
-                    if (isPremium && item.fromUser && !sentRequests.has(item.fromUser.id)) {
-                      onSendMessageRequest?.(item.fromUser, item.adjective);
+                    if (isPremium && item.fromUser && !sentRequests.has(item.fromUser.id) && onSendMessageRequest) {
+                      onSendMessageRequest(item.fromUser, item.adjective);
                       setSentRequests(prev => new Set([...prev, item.fromUser.id]));
                     }
                   }}
@@ -190,8 +190,9 @@ export default function InboxScreen({ items, matches = [], isPremium = false, on
                       className={`inbox-chat-btn inbox-request-btn ${sentRequests.has(item.fromUser.id) ? 'request-sent-btn' : ''}`}
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (!sentRequests.has(item.fromUser.id)) {
-                          onSendMessageRequest?.(item.fromUser, item.adjective);
+                        e.preventDefault();
+                        if (!sentRequests.has(item.fromUser.id) && onSendMessageRequest) {
+                          onSendMessageRequest(item.fromUser, item.adjective);
                           setSentRequests(prev => new Set([...prev, item.fromUser.id]));
                         }
                       }}
