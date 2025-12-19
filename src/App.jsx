@@ -263,8 +263,24 @@ export default function App() {
     });
   };
 
+  // Count vibes sent today
+  const vibesSentToday = useMemo(() => {
+    if (!loggedInUser) return 0;
+    const today = new Date().toDateString();
+    return notifications.filter(n => {
+      if (n.fromUserId !== loggedInUser.id) return false;
+      const notificationDate = new Date(n.createdAt).toDateString();
+      return notificationDate === today;
+    }).length;
+  }, [notifications, loggedInUser]);
+
   const handleAdjectiveSelect = (adjective) => {
     if (!currentProfile) return;
+    
+    // Check daily limit for non-premium users
+    if (!isPremium && vibesSentToday >= 10) {
+      return;
+    }
     
     const entry = {
       id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -588,6 +604,8 @@ export default function App() {
                   adjectives={adjectives}
                   onSelectAdjective={handleAdjectiveSelect}
                   matchesCount={currentProfileMatchesCount}
+                  vibesSentToday={vibesSentToday}
+                  isPremium={isPremium}
                 />
               ) : (
                 <div className="empty-state">

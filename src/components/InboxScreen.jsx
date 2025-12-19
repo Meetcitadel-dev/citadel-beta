@@ -36,6 +36,18 @@ export default function InboxScreen({ items, matches = [], isPremium = false, on
         )}
       </div>
 
+      {/* Info Banner */}
+      <div className="inbox-info-banner">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="info-icon">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="16" x2="12" y2="12"/>
+          <line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>
+        <div className="info-text">
+          <strong>Vibes and matches expire in 24 hours.</strong> Make sure to check your inbox before they disappear. New ones arrive tomorrow!
+        </div>
+      </div>
+
       {/* Tab Switcher */}
       <div className="vibes-tabs">
         <button 

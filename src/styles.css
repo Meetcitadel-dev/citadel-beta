@@ -2730,3 +2730,72 @@ body {
   font-size: 0.8rem;
   color: var(--text-muted);
 }
+
+/* ============ Info Banners ============ */
+.inbox-info-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  background: rgba(27, 234, 123, 0.1);
+  border: 1px solid rgba(27, 234, 123, 0.3);
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.info-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--accent);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.info-text {
+  flex: 1;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.info-text strong {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.vibes-limit-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.limit-icon {
+  width: 20px;
+  height: 20px;
+  color: #f87171;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.limit-text {
+  flex: 1;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.limit-text strong {
+  color: #f87171;
+  font-weight: 700;
+}
+
+.adjective-button.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
