@@ -65,18 +65,7 @@ export default function DiscoverScreen({
           </div>
 
           {/* Premium Skip Button - always visible, only functional for premium users */}
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              marginTop: "8px",
-              position: "absolute",
-              left: "332px",
-              top: "86px",
-              width: "56px",
-              height: "33px",
-            }}
-          >
+          <div className="profile-skip-wrapper">
             <button
               className="profile-skip-button"
               onClick={() => {
