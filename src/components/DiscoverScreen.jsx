@@ -44,9 +44,7 @@ export default function DiscoverScreen({
             </strong>{" "}
             {isPremium
               ? 'Enjoy unlimited vibes.'
-              : (vibesSentToday >= 10
-                ? 'Daily limit reached. Upgrade to Premium for unlimited vibes.'
-                : 'You can send 10 vibes per day.')}
+              : 'Get premium to skip profiles.'}
           </div>
         </div>
         <img
@@ -57,24 +55,41 @@ export default function DiscoverScreen({
 
         <div className="profile-meta">
           <div className="profile-name-row">
-            <div className="profile-name">{profile.name} {profile.age && <span className="profile-age">({profile.age})</span>}</div>
+            <div className="profile-name">
+              {profile.name} {profile.age && <span className="profile-age">({profile.age})</span>}
+            </div>
             <div className="profile-year-pill">
               <span className="label">Matches</span>
               <span className="value">{matchesCount}</span>
             </div>
           </div>
-          
-          {isPremium && (
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "8px" }}>
-              <button
-                className="profile-skip-button"
-                onClick={() => onSkip?.()}
-                title="Skip this profile"
-              >
-                Skip
-              </button>
-            </div>
-          )}
+
+          {/* Premium Skip Button - always visible, only functional for premium users */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              marginTop: "8px",
+              position: "absolute",
+              left: "332px",
+              top: "86px",
+              width: "56px",
+              height: "33px",
+            }}
+          >
+            <button
+              className="profile-skip-button"
+              onClick={() => {
+                if (isPremium) {
+                  onSkip?.();
+                }
+              }}
+              disabled={!isPremium}
+              title={isPremium ? "Skip this profile" : "Premium required to skip"}
+            >
+              Skip
+            </button>
+          </div>
 
           <div className="profile-role">{roleLine}</div>
           <div className="profile-college-line">

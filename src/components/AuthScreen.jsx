@@ -94,6 +94,12 @@ export default function AuthScreen({ onAuthSuccess, existingUsers }) {
       return;
     }
     
+    const skills = signupData.skills
+      .split(",")
+      .map(s => s.trim())
+      .filter(Boolean)
+      .slice(0, 3);
+
     const newUser = {
       phone,
       name: signupData.name.trim(),
@@ -101,7 +107,7 @@ export default function AuthScreen({ onAuthSuccess, existingUsers }) {
       age: parseInt(signupData.age),
       college: signupData.college.trim(),
       year: signupData.year,
-      skills: signupData.skills.split(",").map(s => s.trim()).filter(Boolean),
+      skills,
       imageUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${phone}`
     };
     

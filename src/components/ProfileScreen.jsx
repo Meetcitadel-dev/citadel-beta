@@ -28,7 +28,17 @@ export default function ProfileScreen({ user, onUpdate, onLogout }) {
   }, [user.id]);
 
   const handleChange = (field) => (event) => {
-    setForm((prev) => ({ ...prev, [field]: event.target.value }));
+    let value = event.target.value;
+
+    // For skills, enforce max 3 entries by allowing at most 2 commas
+    if (field === "skills") {
+      const parts = value.split(",");
+      if (parts.length > 3) {
+        value = parts.slice(0, 3).join(",");
+      }
+    }
+
+    setForm((prev) => ({ ...prev, [field]: value }));
     setSaved(false);
   };
 
@@ -46,6 +56,11 @@ export default function ProfileScreen({ user, onUpdate, onLogout }) {
 
   const handleSubmit = (event) => {
     event.preventDefault();
+    const skillList = form.skills
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 3);
     const next = {
       ...user,
       name: form.name.trim() || user.name,
@@ -53,10 +68,7 @@ export default function ProfileScreen({ user, onUpdate, onLogout }) {
       age: form.age ? parseInt(form.age) : user.age,
       college: form.college.trim() || user.college,
       year: form.year || user.year,
-      skills: form.skills
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
+      skills: skillList,
       imageUrl: form.imageUrl || user.imageUrl
     };
     onUpdate?.(next);
@@ -193,7 +205,6 @@ export default function ProfileScreen({ user, onUpdate, onLogout }) {
 
       <div className="profile-actions">
         <button className="logout-btn" onClick={onLogout}>
-          <span className="logout-icon">🚪</span>
           Log out
         </button>
       </div>

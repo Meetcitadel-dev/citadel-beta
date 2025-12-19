@@ -417,6 +417,11 @@ export default function App() {
       }));
   }, [loggedInUser, messageRequests, users]);
 
+  // Badge counts for nav icons
+  const inboxBadgeCount = inboxItems.length + matchItems.length;
+  const pendingRequestCount = pendingRequests.filter(r => r.status === 'pending').length;
+  const messagesBadgeCount = conversations.length + pendingRequestCount;
+
   // Get messages for current chat
   const chatMessages = useMemo(() => {
     if (!chatUser || !loggedInUser) return [];
@@ -556,18 +561,32 @@ export default function App() {
           className={`nav-tab ${activeTab === "inbox" ? "active" : ""}`.trim()}
           onClick={() => setActiveTab("inbox")}
         >
-          <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-          </svg>
+          <div className="nav-icon-wrapper">
+            <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+            {inboxBadgeCount > 0 && (
+              <span className="nav-badge">
+                {inboxBadgeCount > 9 ? "9+" : inboxBadgeCount}
+              </span>
+            )}
+          </div>
           <span className="nav-label">Inbox</span>
         </button>
         <button
           className={`nav-tab ${activeTab === "messages" || activeTab === "chat" ? "active" : ""}`.trim()}
           onClick={() => { setChatUser(null); setActiveTab("messages"); }}
         >
-          <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-          </svg>
+          <div className="nav-icon-wrapper">
+            <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            {messagesBadgeCount > 0 && (
+              <span className="nav-badge">
+                {messagesBadgeCount > 9 ? "9+" : messagesBadgeCount}
+              </span>
+            )}
+          </div>
           <span className="nav-label">Messages</span>
         </button>
         <button

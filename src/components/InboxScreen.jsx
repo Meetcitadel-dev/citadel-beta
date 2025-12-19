@@ -30,7 +30,7 @@ export default function InboxScreen({ items, matches = [], isPremium = false, on
           <div className="badge premium-badge">Premium</div>
         ) : (
           <button className="subscribe-btn" onClick={onOpenPayment}>
-            Unlock
+            Get Premium
           </button>
         )}
       </div>
@@ -232,17 +232,6 @@ export default function InboxScreen({ items, matches = [], isPremium = false, on
           </>
         )}
 
-        {/* Subscription CTA */}
-        {!isPremium && ((activeTab === "matches" && matches.length > 0) || (activeTab === "vibes" && items.length > 0)) && (
-          <div className="subscription-cta">
-            <span className="cta-text">
-              Want to see who&apos;s vibing with you?
-            </span>
-            <button className="cta-btn" onClick={onOpenPayment}>
-              Unlock Premium
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

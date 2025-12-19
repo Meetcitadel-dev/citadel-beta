@@ -15,23 +15,17 @@ const DB_KEYS = {
 
 // Initialize database with default data.
 // Always overwrite the USERS list so changes to the seed data (USERS) take effect,
-// but keep existing notifications/matches/messages unless they don't exist yet.
+// and reset interactions so tests always start from a clean slate.
 export function initializeDB(defaultUsers) {
   // Always refresh users from the provided default seed
   localStorage.setItem(DB_KEYS.USERS, JSON.stringify(defaultUsers));
 
-  if (!localStorage.getItem(DB_KEYS.NOTIFICATIONS)) {
-    localStorage.setItem(DB_KEYS.NOTIFICATIONS, JSON.stringify([]));
-  }
-  if (!localStorage.getItem(DB_KEYS.MATCHES)) {
-    localStorage.setItem(DB_KEYS.MATCHES, JSON.stringify([]));
-  }
-  if (!localStorage.getItem(DB_KEYS.MESSAGES)) {
-    localStorage.setItem(DB_KEYS.MESSAGES, JSON.stringify([]));
-  }
-  if (!localStorage.getItem(DB_KEYS.MESSAGE_REQUESTS)) {
-    localStorage.setItem(DB_KEYS.MESSAGE_REQUESTS, JSON.stringify([]));
-  }
+  // Always reset interactions (vibes/notifications, matches, messages, requests)
+  // so all profiles start with zero counts for testing.
+  localStorage.setItem(DB_KEYS.NOTIFICATIONS, JSON.stringify([]));
+  localStorage.setItem(DB_KEYS.MATCHES, JSON.stringify([]));
+  localStorage.setItem(DB_KEYS.MESSAGES, JSON.stringify([]));
+  localStorage.setItem(DB_KEYS.MESSAGE_REQUESTS, JSON.stringify([]));
   if (!localStorage.getItem(DB_KEYS.CURRENT_USER_ID)) {
     localStorage.setItem(DB_KEYS.CURRENT_USER_ID, '1');
   }
