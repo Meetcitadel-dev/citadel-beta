@@ -1,0 +1,10 @@
+INSTRUCTIONS TO ADD YOUR LOGO:
+
+1. Save your logo image file in this folder (public/)
+2. Name it exactly: citadel-logo.png
+3. Make sure it's a valid image file (PNG, JPG, or SVG)
+4. Refresh your browser
+
+The code will look for the file at: /citadel-logo.png
+
+If you save it with a different name, the image won't load.

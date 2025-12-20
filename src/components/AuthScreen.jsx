@@ -1,13 +1,14 @@
 import React, { useState } from "react";
+import { authAPI } from "../utils/api.js";
+import { isValidUniversityEmail, extractUniversityFromEmail } from "../utils/emailValidation.js";
 
-const DEMO_OTP = "1234";
-
-export default function AuthScreen({ onAuthSuccess, existingUsers }) {
+export default function AuthScreen({ onAuthSuccess }) {
   const [mode, setMode] = useState("signup"); // 'signup' or 'login'
-  const [step, setStep] = useState("phone"); // 'phone', 'otp', 'signup'
-  const [phone, setPhone] = useState("");
+  const [step, setStep] = useState("email"); // 'email', 'otp', 'signup'
+  const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const [isNewUser, setIsNewUser] = useState(false);
   
   // Signup form state
@@ -20,56 +21,93 @@ export default function AuthScreen({ onAuthSuccess, existingUsers }) {
     skills: ""
   });
 
-  const handlePhoneSubmit = (e) => {
+  const handleEmailSubmit = async (e) => {
     e.preventDefault();
     setError("");
     
-    if (!phone || phone.length !== 10 || !/^\d+$/.test(phone)) {
-      setError("Please enter a valid 10-digit phone number");
+    if (!email || !email.trim()) {
+      setError("Please enter your email address");
+      return;
+    }
+
+    // Validate email format
+    if (!isValidUniversityEmail(email)) {
+      setError("Please enter a valid email address");
       return;
     }
     
-    // Check if user exists
-    const existingUser = existingUsers.find(u => u.phone === phone);
-    
-    if (mode === "login") {
-      // Login mode: only allow if user exists
-      if (!existingUser) {
-        setError("No account found with this number. Please sign up first.");
-        return;
+    setIsLoading(true);
+    try {
+      // Request OTP from backend
+      const response = await authAPI.requestOTP(email.trim().toLowerCase(), null);
+      
+      // In development, OTP is returned in the response
+      if (response.otp) {
+        console.log('🔑 OTP (development mode):', response.otp);
+        // You can also show this to the user in development
+        alert(`Development Mode: Your OTP is ${response.otp}`);
       }
-      setIsNewUser(false);
+      
+      // Auto-fill college from email domain if available
+      const universityName = extractUniversityFromEmail(email);
+      if (universityName && !signupData.college) {
+        setSignupData(prev => ({ ...prev, college: universityName }));
+      }
+
+      setIsNewUser(mode === "signup");
+      setStep("otp");
+    } catch (err) {
+      console.error("Request OTP error:", err);
+      if (err.message.includes("Unable to connect") || err.message.includes("Failed to fetch")) {
+        setError("Cannot connect to server. Please make sure the backend server is running (npm run server:dev)");
+      } else if (mode === "login" && err.message.includes("not found")) {
+        setError("No account found with this email. Please sign up first.");
+      } else if (mode === "signup" && err.message.includes("already exists")) {
+        setError("Account already exists with this email. Please login instead.");
     } else {
-      // Signup mode: check if user already exists
-      if (existingUser) {
-        setError("Account already exists. Please login instead.");
-        return;
+        setError(err.message || "Failed to send OTP. Please try again.");
       }
-      setIsNewUser(true);
+    } finally {
+      setIsLoading(false);
     }
-    
-    setStep("otp");
   };
 
-  const handleOtpSubmit = (e) => {
+  const handleOtpSubmit = async (e) => {
     e.preventDefault();
     setError("");
     
-    if (otp !== DEMO_OTP) {
-      setError("Invalid OTP. Demo OTP is 1234");
+    if (!otp || otp.length !== 6) {
+      setError("Please enter a valid 6-digit OTP");
       return;
     }
     
-    if (isNewUser) {
+    setIsLoading(true);
+    try {
+      const data = await authAPI.verifyOTP(email.trim().toLowerCase(), null, otp);
+      
+      // Check if this is a new user based on API response
+      if (data.isNewUser || isNewUser) {
+        // New user - proceed to signup form
       setStep("signup");
     } else {
-      // Login existing user
-      const existingUser = existingUsers.find(u => u.phone === phone);
-      onAuthSuccess(existingUser, false);
+        // Existing user - login successful
+        // The API already set the token and user in localStorage
+        // We need to call onAuthSuccess with the user data
+        onAuthSuccess(data.user, false);
+      }
+    } catch (err) {
+      console.error("Verify OTP error:", err);
+      if (err.message.includes("Unable to connect") || err.message.includes("Failed to fetch")) {
+        setError("Cannot connect to server. Please make sure the backend server is running (npm run server:dev)");
+      } else {
+        setError(err.message || "Invalid OTP. Please try again.");
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleSignupSubmit = (e) => {
+  const handleSignupSubmit = async (e) => {
     e.preventDefault();
     setError("");
     
@@ -100,18 +138,36 @@ export default function AuthScreen({ onAuthSuccess, existingUsers }) {
       .filter(Boolean)
       .slice(0, 3);
 
-    const newUser = {
-      phone,
+    setIsLoading(true);
+    try {
+      const userData = {
+        email: email.trim().toLowerCase(),
       name: signupData.name.trim(),
       gender: signupData.gender,
       age: parseInt(signupData.age),
       college: signupData.college.trim(),
       year: signupData.year,
       skills,
-      imageUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${phone}`
+        imageUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`
     };
     
-    onAuthSuccess(newUser, true);
+      const data = await authAPI.register(userData);
+      
+      // Registration successful - user is logged in with JWT token
+      // Show success message about email verification
+      alert("Account created! Please check your email to verify your account.");
+      
+      onAuthSuccess(data.user, true);
+    } catch (err) {
+      console.error("Register error:", err);
+      if (err.message.includes("Unable to connect") || err.message.includes("Failed to fetch")) {
+        setError("Cannot connect to server. Please make sure the backend server is running (npm run server:dev)");
+      } else {
+        setError(err.message || "Failed to create account. Please try again.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSignupChange = (field) => (e) => {
@@ -126,8 +182,8 @@ export default function AuthScreen({ onAuthSuccess, existingUsers }) {
           <img src="/logo.svg" alt="Citadel" className="auth-logo-img" />
           <h1 className="auth-title">Citadel</h1>
           <p className="auth-subtitle">
-            {step === "phone" && (mode === "login" ? "Welcome back! Enter your phone" : "Enter your phone to get started")}
-            {step === "otp" && "Enter the OTP sent to your phone"}
+            {step === "email" && (mode === "login" ? "Welcome back! Enter your email" : "Enter your email to get started")}
+            {step === "otp" && "Enter the 6-digit OTP sent to your email"}
             {step === "signup" && "Complete your profile"}
           </p>
         </div>
@@ -138,9 +194,9 @@ export default function AuthScreen({ onAuthSuccess, existingUsers }) {
           </div>
         )}
 
-        {/* Phone Input Step */}
-        {step === "phone" && (
-          <form className="auth-form" onSubmit={handlePhoneSubmit}>
+        {/* Email Input Step */}
+        {step === "email" && (
+          <form className="auth-form" onSubmit={handleEmailSubmit}>
             <div className="auth-mode-toggle">
               <button
                 type="button"
@@ -158,24 +214,26 @@ export default function AuthScreen({ onAuthSuccess, existingUsers }) {
               </button>
             </div>
             <div className="auth-field">
-              <label className="auth-label">Phone Number</label>
-              <div className="phone-input-wrapper">
-                <span className="country-code">+91</span>
+              <label className="auth-label">Email</label>
                 <input
-                  type="tel"
-                  value={phone}
+                type="email"
+                value={email}
                   onChange={(e) => {
-                    setPhone(e.target.value.replace(/\D/g, "").slice(0, 10));
+                  setEmail(e.target.value.trim());
                     setError("");
                   }}
-                  placeholder="Enter 10-digit number"
-                  className="auth-input phone-input"
+                placeholder="your.email@example.com"
+                className="auth-input"
                   autoFocus
+                autoComplete="email"
                 />
-              </div>
             </div>
-            <button type="submit" className="auth-btn primary">
-              {mode === "login" ? "Login" : "Continue"}
+            <button 
+              type="submit" 
+              className="auth-btn primary"
+              disabled={isLoading}
+            >
+              {isLoading ? "Sending..." : (mode === "login" ? "Login" : "Continue")}
             </button>
           </form>
         )}
@@ -189,29 +247,58 @@ export default function AuthScreen({ onAuthSuccess, existingUsers }) {
                 type="text"
                 value={otp}
                 onChange={(e) => {
-                  setOtp(e.target.value.replace(/\D/g, "").slice(0, 4));
+                  setOtp(e.target.value.replace(/\D/g, "").slice(0, 6));
                   setError("");
                 }}
-                placeholder="4-digit OTP"
+                placeholder="6-digit OTP"
                 className="auth-input otp-input"
-                maxLength={4}
+                maxLength={6}
                 autoFocus
               />
-              <p className="auth-hint">Demo OTP: <strong>1234</strong></p>
+              <p className="auth-hint">Check your email for the 6-digit code</p>
             </div>
-            <button type="submit" className="auth-btn primary">
-              Verify OTP
+            <button 
+              type="submit" 
+              className="auth-btn primary"
+              disabled={isLoading || otp.length !== 6}
+            >
+              {isLoading ? "Verifying..." : "Verify OTP"}
             </button>
             <button
               type="button"
               className="auth-btn secondary"
               onClick={() => {
-                setStep("phone");
+                setStep("email");
                 setOtp("");
                 setError("");
               }}
+              disabled={isLoading}
             >
-              Change Number
+              Change Email
+            </button>
+            <button
+              type="button"
+              className="auth-btn secondary"
+              onClick={async () => {
+                setIsLoading(true);
+                try {
+                  await authAPI.requestOTP(email.trim().toLowerCase(), null);
+                  setError("");
+                  alert("OTP resent to your email!");
+                } catch (err) {
+                  console.error("Resend OTP error:", err);
+                  if (err.message.includes("Unable to connect") || err.message.includes("Failed to fetch")) {
+                    setError("Cannot connect to server. Please make sure the backend server is running (npm run server:dev)");
+                  } else {
+                    setError(err.message || "Failed to resend OTP");
+                  }
+                } finally {
+                  setIsLoading(false);
+                }
+              }}
+              disabled={isLoading}
+            >
+              Resend OTP
             </button>
           </form>
         )}
@@ -248,6 +335,13 @@ export default function AuthScreen({ onAuthSuccess, existingUsers }) {
                 >
                   👩 Female
                 </button>
+                <button
+                  type="button"
+                  className={`gender-btn ${signupData.gender === "other" ? "active" : ""}`}
+                  onClick={() => setSignupData(prev => ({ ...prev, gender: "other" }))}
+                >
+                  🏳️ Other
+                </button>
               </div>
             </div>
 
@@ -283,11 +377,10 @@ export default function AuthScreen({ onAuthSuccess, existingUsers }) {
                 className="auth-input auth-select"
               >
                 <option value="">Select year</option>
-                <option value="1st Year">1st Year</option>
-                <option value="2nd Year">2nd Year</option>
-                <option value="3rd Year">3rd Year</option>
-                <option value="4th Year">4th Year</option>
-                <option value="5th Year">5th Year</option>
+                <option value="Freshman">Freshman</option>
+                <option value="Sophomore">Sophomore</option>
+                <option value="Junior">Junior</option>
+                <option value="Senior">Senior</option>
               </select>
             </div>
 
@@ -303,18 +396,23 @@ export default function AuthScreen({ onAuthSuccess, existingUsers }) {
               <p className="auth-hint">Comma separated</p>
             </div>
 
-            <button type="submit" className="auth-btn primary">
-              Create Account
+            <button 
+              type="submit" 
+              className="auth-btn primary"
+              disabled={isLoading}
+            >
+              {isLoading ? "Creating Account..." : "Create Account"}
             </button>
             <button
               type="button"
               className="auth-btn secondary"
               onClick={() => {
-                setStep("phone");
+                setStep("email");
                 setOtp("");
                 setSignupData({ name: "", gender: "", college: "", year: "", age: "", skills: "" });
                 setError("");
               }}
+              disabled={isLoading}
             >
               Start Over
             </button>
@@ -328,4 +426,3 @@ export default function AuthScreen({ onAuthSuccess, existingUsers }) {
     </div>
   );
 }
-

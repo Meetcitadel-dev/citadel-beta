@@ -2,7 +2,9 @@ import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { USERS as DEFAULT_USERS } from "./data/users.js";
 import { generateAdjectives } from "./data/adjectives.js";
 import db from "./data/db.js";
+import { authAPI, getToken, getCurrentUser } from "./utils/api.js";
 import AuthScreen from "./components/AuthScreen.jsx";
+import EmailVerificationScreen from "./components/EmailVerificationScreen.jsx";
 import DiscoverScreen from "./components/DiscoverScreen.jsx";
 import InboxScreen from "./components/InboxScreen.jsx";
 import MessagesScreen from "./components/MessagesScreen.jsx";
@@ -35,14 +37,32 @@ export default function App() {
     setMessages(db.messages.getAll());
     setMessageRequests(db.messageRequests.getAll());
     
-    // Check if user is already authenticated
+    // Check if user is already authenticated via JWT
+    const checkAuth = async () => {
+      const token = getToken();
+      const storedUser = getCurrentUser();
+      
+      if (token && storedUser) {
+        try {
+          // Verify token is still valid by fetching current user
+          const user = await authAPI.getMe();
+          setLoggedInUserId(user.id || user._id);
+          setIsAuthenticated(true);
+          setIsPremium(user.isPremium || false);
+        } catch (error) {
+          // Token invalid or expired, clear auth
+          authAPI.logout();
+          localStorage.removeItem('citadel_auth_user');
+          localStorage.removeItem('citadel_is_premium');
+        }
+      } else {
+        // Fallback to old localStorage auth for backward compatibility
     const authUser = localStorage.getItem('citadel_auth_user');
     if (authUser) {
       try {
         const parsed = JSON.parse(authUser);
         setLoggedInUserId(parsed.id);
         setIsAuthenticated(true);
-        // Load premium status
         const premiumData = localStorage.getItem('citadel_is_premium');
         if (premiumData) {
           const premiumParsed = JSON.parse(premiumData);
@@ -51,39 +71,43 @@ export default function App() {
           }
         }
       } catch (e) {
-        // Invalid auth data
         localStorage.removeItem('citadel_auth_user');
+          }
       }
     }
     setIsLoaded(true);
+    };
+    
+    checkAuth();
   }, []);
 
   // Handle authentication success
   const handleAuthSuccess = useCallback((user, isNewUser) => {
-    let userId;
+    // User is already authenticated via JWT (token and user stored by authAPI)
+    // Just update the app state
+    const userId = user.id || user._id;
     
+    // Also update local database for backward compatibility
     if (isNewUser) {
-      // Create new user in database
       const newUser = db.users.create(user);
-      userId = newUser.id;
       setUsers(db.users.getAll());
-    } else {
-      userId = user.id;
     }
     
-    // Save auth state
-    const authUser = db.users.getById(userId);
-    localStorage.setItem('citadel_auth_user', JSON.stringify(authUser));
+    // Save to localStorage for backward compatibility
+    localStorage.setItem('citadel_auth_user', JSON.stringify(user));
     db.session.setCurrentUserId(userId);
     
     setLoggedInUserId(userId);
     setIsAuthenticated(true);
+    setIsPremium(user.isPremium || false);
     setCurrentIndex(0);
   }, []);
 
   // Handle logout
   const handleLogout = useCallback(() => {
+    authAPI.logout();
     localStorage.removeItem('citadel_auth_user');
+    localStorage.removeItem('citadel_is_premium');
     setIsAuthenticated(false);
     setLoggedInUserId(null);
     setIsPremium(false);
@@ -523,12 +547,32 @@ export default function App() {
     );
   }
 
+  // Check if we're on email verification page
+  const urlParams = new URLSearchParams(window.location.search);
+  const verificationToken = urlParams.get("token");
+  const isVerificationPage = window.location.pathname.includes("verify-email") || verificationToken;
+
+  // Show email verification screen if token is present
+  if (isVerificationPage && verificationToken) {
+    return (
+      <EmailVerificationScreen
+        onVerificationSuccess={() => {
+          // Clear URL and reload or redirect
+          window.history.replaceState({}, document.title, window.location.pathname);
+          // If user is authenticated, show app, otherwise show auth screen
+          if (!isAuthenticated) {
+            window.location.reload();
+          }
+        }}
+      />
+    );
+  }
+
   // Show auth screen if not authenticated
   if (!isAuthenticated) {
     return (
       <AuthScreen
         onAuthSuccess={handleAuthSuccess}
-        existingUsers={users}
       />
     );
   }

@@ -46,31 +46,60 @@ const apiRequest = async (endpoint, options = {}) => {
     headers.Authorization = `Bearer ${token}`;
   }
 
+  try {
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
     headers,
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Request failed' }));
-    throw new Error(error.error || `HTTP error! status: ${response.status}`);
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
+      } catch (e) {
+        // If response is not JSON, use status text
+        errorMessage = response.statusText || errorMessage;
+      }
+      throw new Error(errorMessage);
   }
 
   return response.json();
+  } catch (error) {
+    // Handle network errors, CORS issues, etc.
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      throw new Error('Unable to connect to server. Please make sure the backend server is running on http://localhost:3001');
+    }
+    throw error;
+  }
 };
 
 // ============ AUTH API ============
 export const authAPI = {
-  login: async (phone, email) => {
-    const data = await apiRequest('/auth/login', {
+  // Request OTP for login
+  requestOTP: async (email, phone) => {
+    const data = await apiRequest('/auth/request-otp', {
       method: 'POST',
-      body: JSON.stringify({ phone, email }),
+      body: JSON.stringify({ email, phone }),
     });
-    setToken(data.token);
-    setCurrentUser(data.user);
     return data;
   },
 
+  // Verify OTP and login (or proceed to signup)
+  verifyOTP: async (email, phone, otp) => {
+    const data = await apiRequest('/auth/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email, phone, otp }),
+    });
+    // Only set token and user if this is a login (not signup)
+    if (data.token && data.user) {
+    setToken(data.token);
+    setCurrentUser(data.user);
+    }
+    return data;
+  },
+
+  // Register new user
   register: async (userData) => {
     const data = await apiRequest('/auth/register', {
       method: 'POST',
@@ -81,11 +110,40 @@ export const authAPI = {
     return data;
   },
 
+  // Verify email with token
+  verifyEmail: async (token) => {
+    const data = await apiRequest(`/auth/verify-email?token=${token}`, {
+      method: 'GET',
+    });
+    return data;
+  },
+
+  // Resend verification email
+  resendVerification: async () => {
+    const data = await apiRequest('/auth/resend-verification', {
+      method: 'POST',
+    });
+    return data;
+  },
+
+  // Legacy login (for backward compatibility)
+  login: async (phone, email) => {
+    const data = await apiRequest('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ phone, email }),
+    });
+    setToken(data.token);
+    setCurrentUser(data.user);
+    return data;
+  },
+
+  // Get current user info
   getMe: async () => {
     const data = await apiRequest('/auth/me');
     return data.user;
   },
 
+  // Logout
   logout: () => {
     setToken(null);
     setCurrentUser(null);

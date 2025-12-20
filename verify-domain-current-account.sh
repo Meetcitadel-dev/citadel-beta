@@ -1,0 +1,25 @@
+#!/bin/bash
+# Script to help verify domain in current Resend account
+
+echo "🔍 Resend Domain Verification Helper"
+echo "======================================"
+echo ""
+echo "Current API Key (first 15 chars):"
+grep RESEND_API_KEY .env 2>/dev/null | cut -d'=' -f2 | cut -c1-15 || echo "Not found in .env"
+echo ""
+echo "📋 Steps to verify meetcitadel.com in your current Resend account:"
+echo ""
+echo "1. Go to: https://resend.com/domains"
+echo "2. Click 'Add Domain'"
+echo "3. Enter: meetcitadel.com"
+echo "4. Copy the DNS records Resend provides"
+echo "5. Add them to GoDaddy DNS"
+echo "6. Wait 5-10 minutes, then click 'Verify'"
+echo ""
+echo "⚠️  Note: If meetcitadel.com is already verified in another Resend account,"
+echo "   you may need to temporarily remove conflicting DNS records, verify here,"
+echo "   then add them back. Or use the same API key for both projects."
+echo ""
+echo "🧪 After verification, test with:"
+echo "   node server/test-email.js hello@meetcitadel.com"
+

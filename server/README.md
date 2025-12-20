@@ -44,8 +44,12 @@ npm run server
 
 ### Authentication
 
-- `POST /api/auth/register` - Register a new user
-- `POST /api/auth/login` - Login with phone/email
+- `POST /api/auth/request-otp` - Request OTP for login (sends email with OTP)
+- `POST /api/auth/verify-otp` - Verify OTP and login (returns JWT token)
+- `POST /api/auth/register` - Register a new user (sends verification email)
+- `GET /api/auth/verify-email?token=<token>` - Verify email address
+- `POST /api/auth/resend-verification` - Resend verification email (requires auth)
+- `POST /api/auth/login` - Legacy login endpoint (for backward compatibility)
 - `GET /api/auth/me` - Get current user info (requires auth)
 
 ### Users
@@ -84,12 +88,19 @@ npm run server
 
 ## Authentication
 
-All endpoints (except `/api/auth/register` and `/api/auth/login`) require authentication via JWT token.
+All endpoints (except `/api/auth/register`, `/api/auth/login`, `/api/auth/request-otp`, `/api/auth/verify-otp`, and `/api/auth/verify-email`) require authentication via JWT token.
 
 Include the token in the Authorization header:
 ```
 Authorization: Bearer <your-token>
 ```
+
+### JWT Authentication Flow
+
+1. **Registration**: User registers → receives JWT token + verification email
+2. **Email Verification**: User clicks link in email → email verified
+3. **Login**: User requests OTP → receives email with OTP → verifies OTP → receives JWT token
+4. **Protected Routes**: Include JWT token in Authorization header for all protected endpoints
 
 ## Database Models
 
@@ -97,6 +108,8 @@ Authorization: Bearer <your-token>
 - name, gender, college, year, age, skills, imageUrl
 - phone, email (optional, for login)
 - isPremium, premiumExpiresAt
+- emailVerified, emailVerificationToken, emailVerificationExpires
+- otp, otpExpires (for OTP-based login)
 
 ### Notification
 - fromUserId, toUserId, adjective
@@ -121,6 +134,12 @@ Authorization: Bearer <your-token>
 - `PORT` - Server port (default: 3001)
 - `MONGODB_URI` - MongoDB connection string
 - `JWT_SECRET` - Secret key for JWT token signing
+- `RESEND_API_KEY` - Resend API key for sending emails
+- `RESEND_FROM_EMAIL` - Email address to send from (default: onboarding@resend.dev)
+- `FRONTEND_URL` - Frontend URL for email verification links (default: http://localhost:5173)
+- `NODE_ENV` - Environment (development/production)
+
+See `ENV_SETUP.md` in the root directory for detailed setup instructions.
 
 ## Error Handling
 
