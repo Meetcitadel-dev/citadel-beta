@@ -39,71 +39,87 @@ export default function App() {
     
     // Check if user is already authenticated via JWT
     const checkAuth = async () => {
+      // Check for bypass flag (URL parameter or localStorage)
+      const urlParams = new URLSearchParams(window.location.search);
+      const bypassParam = urlParams.get('bypass');
+      const bypassStorage = localStorage.getItem('bypass_onboarding');
+      const shouldBypass = bypassParam === 'true' || bypassStorage === 'true';
+      
+      if (shouldBypass) {
+        localStorage.setItem('bypass_onboarding', 'true');
+        try {
+          const data = await authAPI.bypass();
+          if (data && data.user) {
+            setLoggedInUserId(data.user.id || data.user._id);
+            setIsAuthenticated(true);
+            setIsPremium(data.user.isPremium || false);
+            setActiveTab('discover');
+            setIsLoaded(true);
+            if (bypassParam === 'true') {
+              window.history.replaceState({}, document.title, window.location.pathname);
+            }
+            return;
+          }
+          throw new Error('Invalid response from bypass endpoint');
+        } catch (error) {
+          console.error('Bypass authentication failed:', error);
+          localStorage.removeItem('bypass_onboarding');
+        }
+      }
+      
       const token = getToken();
       const storedUser = getCurrentUser();
       
       if (token && storedUser) {
         try {
-          // Verify token is still valid by fetching current user
           const user = await authAPI.getMe();
           setLoggedInUserId(user.id || user._id);
           setIsAuthenticated(true);
           setIsPremium(user.isPremium || false);
         } catch (error) {
-          // Token invalid or expired, clear auth
           authAPI.logout();
           localStorage.removeItem('citadel_auth_user');
           localStorage.removeItem('citadel_is_premium');
         }
       } else {
-        // Fallback to old localStorage auth for backward compatibility
-    const authUser = localStorage.getItem('citadel_auth_user');
-    if (authUser) {
-      try {
-        const parsed = JSON.parse(authUser);
-        setLoggedInUserId(parsed.id);
-        setIsAuthenticated(true);
-        const premiumData = localStorage.getItem('citadel_is_premium');
-        if (premiumData) {
-          const premiumParsed = JSON.parse(premiumData);
-          if (typeof premiumParsed === 'object' && premiumParsed !== null) {
-            setIsPremium(premiumParsed[parsed.id] === true);
+        const authUser = localStorage.getItem('citadel_auth_user');
+        if (authUser) {
+          try {
+            const parsed = JSON.parse(authUser);
+            setLoggedInUserId(parsed.id);
+            setIsAuthenticated(true);
+            const premiumData = localStorage.getItem('citadel_is_premium');
+            if (premiumData) {
+              const premiumParsed = JSON.parse(premiumData);
+              if (typeof premiumParsed === 'object' && premiumParsed !== null) {
+                setIsPremium(premiumParsed[parsed.id] === true);
+              }
+            }
+          } catch (e) {
+            localStorage.removeItem('citadel_auth_user');
           }
         }
-      } catch (e) {
-        localStorage.removeItem('citadel_auth_user');
-          }
       }
-    }
     setIsLoaded(true);
     };
     
     checkAuth();
   }, []);
 
-  // Handle authentication success
   const handleAuthSuccess = useCallback((user, isNewUser) => {
-    // User is already authenticated via JWT (token and user stored by authAPI)
-    // Just update the app state
     const userId = user.id || user._id;
-    
-    // Also update local database for backward compatibility
     if (isNewUser) {
-      const newUser = db.users.create(user);
+      db.users.create(user);
       setUsers(db.users.getAll());
     }
-    
-    // Save to localStorage for backward compatibility
     localStorage.setItem('citadel_auth_user', JSON.stringify(user));
     db.session.setCurrentUserId(userId);
-    
     setLoggedInUserId(userId);
     setIsAuthenticated(true);
     setIsPremium(user.isPremium || false);
     setCurrentIndex(0);
   }, []);
 
-  // Handle logout
   const handleLogout = useCallback(() => {
     authAPI.logout();
     localStorage.removeItem('citadel_auth_user');
@@ -112,8 +128,6 @@ export default function App() {
     setLoggedInUserId(null);
     setIsPremium(false);
   }, []);
-
-  // Update premium status when user changes
   useEffect(() => {
     if (isLoaded) {
       try {
@@ -144,50 +158,40 @@ export default function App() {
       const stored = localStorage.getItem('citadel_is_premium');
       if (stored) {
         const parsed = JSON.parse(stored);
-        // Handle legacy format (was boolean string) vs new format (object)
         if (typeof parsed === 'object' && parsed !== null) {
           premiumUsers = parsed;
         }
       }
-    } catch (e) {
-      // Invalid JSON, start fresh
-    }
+    } catch (e) {}
     premiumUsers[loggedInUserId] = true;
     localStorage.setItem('citadel_is_premium', JSON.stringify(premiumUsers));
     setIsPremium(true);
     setShowPaymentModal(false);
   }, [loggedInUserId]);
-
-  // Save notifications to database when they change
   useEffect(() => {
     if (isLoaded && notifications.length > 0) {
-      // Sync entire notifications array to localStorage
       localStorage.setItem('citadel_notifications', JSON.stringify(notifications));
     }
   }, [notifications, isLoaded]);
 
-  // Save matches to database when they change
   useEffect(() => {
     if (isLoaded && matches.length > 0) {
       localStorage.setItem('citadel_matches', JSON.stringify(matches));
     }
   }, [matches, isLoaded]);
 
-  // Save messages to database when they change
   useEffect(() => {
     if (isLoaded) {
       localStorage.setItem('citadel_messages', JSON.stringify(messages));
     }
   }, [messages, isLoaded]);
 
-  // Save message requests to database when they change
   useEffect(() => {
     if (isLoaded) {
       localStorage.setItem('citadel_message_requests', JSON.stringify(messageRequests));
     }
   }, [messageRequests, isLoaded]);
 
-  // Save current user ID when it changes
   useEffect(() => {
     if (isLoaded) {
       db.session.setCurrentUserId(loggedInUserId);
@@ -199,15 +203,11 @@ export default function App() {
     [users, loggedInUserId]
   );
 
-  // Handle profile updates
   const handleProfileUpdate = useCallback((updatedUser) => {
-    const updated = db.users.update(updatedUser.id, updatedUser);
-    if (updated) {
+    if (db.users.update(updatedUser.id, updatedUser)) {
       setUsers(db.users.getAll());
     }
   }, []);
-
-  // Get IDs of users who matched with the logged-in user (never show again)
   const matchedUserIds = useMemo(() => {
     const ids = new Set();
     if (!loggedInUser) return ids;
@@ -221,9 +221,8 @@ export default function App() {
     return ids;
   }, [matches, loggedInUser]);
 
-  // Track users that logged-in user has sent adjectives to (with timestamp for ordering)
   const sentAdjectivesMap = useMemo(() => {
-    const map = new Map(); // userId -> most recent timestamp
+    const map = new Map();
     if (!loggedInUser) return map;
     notifications.forEach((n) => {
       if (n.fromUserId === loggedInUser.id) {
@@ -238,34 +237,23 @@ export default function App() {
 
   const visibleUsers = useMemo(() => {
     if (!loggedInUser) return [];
-    // Filter out: self and matched users
     const filtered = users.filter(
       (u) => u.id !== loggedInUser.id && !matchedUserIds.has(u.id)
     );
-    
-    // Sort: users we haven't sent adjectives to come first,
-    // then users we sent adjectives to (oldest first, so recent ones are at the back)
     return filtered.sort((a, b) => {
       const aTime = sentAdjectivesMap.get(a.id);
       const bTime = sentAdjectivesMap.get(b.id);
-      
-      // If neither has been sent an adjective, keep original order
       if (!aTime && !bTime) return 0;
-      // If only a has been sent, b comes first
       if (aTime && !bTime) return 1;
-      // If only b has been sent, a comes first
       if (!aTime && bTime) return -1;
-      // If both have been sent, older one comes first (recent ones at back)
       return aTime.localeCompare(bTime);
     });
   }, [users, loggedInUser, matchedUserIds, sentAdjectivesMap]);
 
   const currentProfile = visibleUsers[currentIndex] ?? null;
 
-  // Check if the current profile has sent an adjective to the logged-in user
   const adjectiveFromProfile = useMemo(() => {
     if (!currentProfile || !loggedInUser) return null;
-    // Find the most recent adjective sent FROM the profile TO the logged-in user
     const sent = notifications.find(
       (n) => n.fromUserId === currentProfile.id && n.toUserId === loggedInUser.id
     );
@@ -280,14 +268,11 @@ export default function App() {
 
   const handleNextProfile = () => {
     if (visibleUsers.length === 0) return;
-    // Move to next, but wrap around if at end
     setCurrentIndex((prev) => {
       const next = prev + 1;
       return next >= visibleUsers.length ? 0 : next;
     });
   };
-
-  // Count vibes sent today
   const vibesSentToday = useMemo(() => {
     if (!loggedInUser) return 0;
     const today = new Date().toDateString();
@@ -299,12 +284,7 @@ export default function App() {
   }, [notifications, loggedInUser]);
 
   const handleAdjectiveSelect = (adjective) => {
-    if (!currentProfile) return;
-    
-    // Check daily limit for non-premium users
-    if (!isPremium && vibesSentToday >= 10) {
-      return;
-    }
+    if (!currentProfile || (!isPremium && vibesSentToday >= 10)) return;
     
     const entry = {
       id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -315,9 +295,7 @@ export default function App() {
     };
     setNotifications((prev) => [entry, ...prev]);
 
-    // Check for match: if they chose the same adjective for each other
     if (adjectiveFromProfile && adjective === adjectiveFromProfile) {
-      // It's a match!
       const matchEntry = {
         id: `match-${Date.now()}-${Math.random().toString(16).slice(2)}`,
         user1Id: loggedInUser.id,
@@ -327,9 +305,6 @@ export default function App() {
       };
       setMatches((prev) => [matchEntry, ...prev]);
     }
-    
-    // After sending adjective, reset to index 0 since the list will re-sort
-    // The profile we just rated will move to the back of the sorted list
     setCurrentIndex(0);
   };
 
@@ -337,25 +312,14 @@ export default function App() {
     () => {
       if (!loggedInUser) return [];
       return notifications
-        .filter((n) => {
-          // Only show vibes sent TO the logged-in user
-          if (n.toUserId !== loggedInUser.id) return false;
-          // Exclude vibes from users who are already matched
-          if (matchedUserIds.has(n.fromUserId)) return false;
-          return true;
-        })
-        .map((n) => {
-          const from = users.find((u) => u.id === n.fromUserId);
-          return {
-            ...n,
-            fromUser: from
-          };
-        });
+        .filter((n) => n.toUserId === loggedInUser.id && !matchedUserIds.has(n.fromUserId))
+        .map((n) => ({
+          ...n,
+          fromUser: users.find((u) => u.id === n.fromUserId)
+        }));
     },
     [notifications, loggedInUser, matchedUserIds, users]
   );
-
-  // Get matches involving the logged-in user
   const matchItems = useMemo(
     () => {
       if (!loggedInUser) return [];
@@ -373,35 +337,32 @@ export default function App() {
     [matches, loggedInUser, users]
   );
 
-  // Get matches count for the current profile being viewed
   const currentProfileMatchesCount = useMemo(() => {
     if (!currentProfile) return 0;
     return matches.filter(
       (m) => m.user1Id === currentProfile.id || m.user2Id === currentProfile.id
     ).length;
   }, [matches, currentProfile]);
-
-  // Get conversations for messages screen (matches + accepted requests)
   const conversations = useMemo(() => {
     if (!loggedInUser) return [];
     
-    // Get all matches as conversations
-    const matchConvos = matchItems.map(m => {
-      // Get last message for this conversation
-      const convMessages = messages.filter(msg =>
-        (msg.fromUserId === loggedInUser.id && msg.toUserId === m.otherUser?.id) ||
-        (msg.fromUserId === m.otherUser?.id && msg.toUserId === loggedInUser.id)
-      );
-      const lastMsg = convMessages[convMessages.length - 1];
-      return {
-        ...m,
-        type: 'match',
-        lastMessage: lastMsg?.text,
-        lastMessageAt: lastMsg?.createdAt
-      };
-    });
+    const matchConvos = matchItems
+      .map(m => {
+        const convMessages = messages.filter(msg =>
+          (msg.fromUserId === loggedInUser.id && msg.toUserId === m.otherUser?.id) ||
+          (msg.fromUserId === m.otherUser?.id && msg.toUserId === loggedInUser.id)
+        );
+        const lastMsg = convMessages[convMessages.length - 1];
+        if (!lastMsg) return null;
+        return {
+          ...m,
+          type: 'match',
+          lastMessage: lastMsg.text,
+          lastMessageAt: lastMsg.createdAt
+        };
+      })
+      .filter(Boolean);
 
-    // Get accepted message requests as conversations
     const acceptedRequests = messageRequests
       .filter(r => r.status === 'accepted' && (r.fromUserId === loggedInUser.id || r.toUserId === loggedInUser.id))
       .map(r => {
@@ -420,7 +381,6 @@ export default function App() {
           lastMessageAt: lastMsg?.createdAt
         };
       })
-      // Filter out duplicates (if already in matches)
       .filter(r => !matchItems.find(m => m.otherUser?.id === r.otherUser?.id));
 
     return [...matchConvos, ...acceptedRequests].sort((a, b) => {
@@ -429,8 +389,6 @@ export default function App() {
       return new Date(bTime) - new Date(aTime);
     });
   }, [loggedInUser, matchItems, messageRequests, messages, users]);
-
-  // Get pending message requests for the logged-in user
   const pendingRequests = useMemo(() => {
     if (!loggedInUser) return [];
     return messageRequests
@@ -441,12 +399,9 @@ export default function App() {
       }));
   }, [loggedInUser, messageRequests, users]);
 
-  // Badge counts for nav icons
   const inboxBadgeCount = inboxItems.length + matchItems.length;
   const pendingRequestCount = pendingRequests.filter(r => r.status === 'pending').length;
   const messagesBadgeCount = conversations.length + pendingRequestCount;
-
-  // Get messages for current chat
   const chatMessages = useMemo(() => {
     if (!chatUser || !loggedInUser) return [];
     return messages.filter(m =>
@@ -460,23 +415,18 @@ export default function App() {
     setCurrentIndex(0);
   };
 
-  // Open chat with a user
   const handleOpenChat = useCallback((user) => {
     setChatUser(user);
     setActiveTab("chat");
   }, []);
 
-  // Close chat and go back to messages
   const handleCloseChat = useCallback(() => {
     setChatUser(null);
     setActiveTab("messages");
   }, []);
-
-  // Send a message
   const handleSendMessage = useCallback((text) => {
     if (!chatUser || !loggedInUser) return;
     
-    // Check if they're matched or have an accepted request
     const isMatched = matches.some(m => 
       (m.user1Id === loggedInUser.id && m.user2Id === chatUser.id) ||
       (m.user1Id === chatUser.id && m.user2Id === loggedInUser.id)
@@ -488,7 +438,6 @@ export default function App() {
       r.status === 'accepted'
     );
     
-    // Only allow sending messages if matched or request accepted
     if (!isMatched && !hasAcceptedRequest) return;
     
     const newMsg = {
@@ -500,8 +449,6 @@ export default function App() {
     };
     setMessages(prev => [...prev, newMsg]);
   }, [chatUser, loggedInUser, matches, messageRequests]);
-
-  // Send a message request (from vibes/likes)
   const handleSendMessageRequest = useCallback((toUser, adjective) => {
     if (!loggedInUser) return;
     const newRequest = {
@@ -513,30 +460,24 @@ export default function App() {
       createdAt: new Date().toISOString()
     };
     setMessageRequests(prev => {
-      // Check if already exists
-      const exists = prev.find(r => 
-        r.fromUserId === loggedInUser.id && r.toUserId === toUser.id
-      );
-      if (exists) return prev;
+      if (prev.find(r => r.fromUserId === loggedInUser.id && r.toUserId === toUser.id)) {
+        return prev;
+      }
       return [newRequest, ...prev];
     });
   }, [loggedInUser]);
 
-  // Accept a message request
   const handleAcceptRequest = useCallback((requestId) => {
     setMessageRequests(prev => 
       prev.map(r => r.id === requestId ? { ...r, status: 'accepted' } : r)
     );
   }, []);
 
-  // Decline a message request
   const handleDeclineRequest = useCallback((requestId) => {
     setMessageRequests(prev => 
       prev.map(r => r.id === requestId ? { ...r, status: 'declined' } : r)
     );
   }, []);
-
-  // Show loading state while database initializes
   if (!isLoaded) {
     return (
       <div className="app-shell">
@@ -547,19 +488,14 @@ export default function App() {
     );
   }
 
-  // Check if we're on email verification page
   const urlParams = new URLSearchParams(window.location.search);
   const verificationToken = urlParams.get("token");
   const isVerificationPage = window.location.pathname.includes("verify-email") || verificationToken;
-
-  // Show email verification screen if token is present
   if (isVerificationPage && verificationToken) {
     return (
       <EmailVerificationScreen
         onVerificationSuccess={() => {
-          // Clear URL and reload or redirect
           window.history.replaceState({}, document.title, window.location.pathname);
-          // If user is authenticated, show app, otherwise show auth screen
           if (!isAuthenticated) {
             window.location.reload();
           }
@@ -699,6 +635,8 @@ export default function App() {
               conversations={conversations}
               requests={pendingRequests}
               currentUserId={loggedInUserId}
+              isPremium={isPremium}
+              onOpenPayment={handleOpenPayment}
               onOpenChat={handleOpenChat}
               onAcceptRequest={handleAcceptRequest}
               onDeclineRequest={handleDeclineRequest}
@@ -730,7 +668,6 @@ export default function App() {
         </div>
       </main>
 
-      {/* Payment Modal - rendered at app level to avoid z-index issues */}
       <PaymentModal
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}

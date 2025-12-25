@@ -19,7 +19,9 @@ export default function MessagesScreen({
   currentUserId,
   onOpenChat,
   onAcceptRequest,
-  onDeclineRequest
+  onDeclineRequest,
+  isPremium = false,
+  onOpenPayment
 }) {
   const [activeTab, setActiveTab] = useState("general");
 
@@ -76,7 +78,13 @@ export default function MessagesScreen({
                 <div
                   key={conv.id}
                   className="message-item"
-                  onClick={() => onOpenChat(conv.otherUser)}
+                  onClick={() => {
+                    if (!isPremium) {
+                      onOpenPayment?.();
+                      return;
+                    }
+                    onOpenChat(conv.otherUser);
+                  }}
                 >
                   {conv.otherUser?.imageUrl ? (
                     <img

@@ -4,8 +4,7 @@ export default function PaymentModal({ isOpen, onClose, onSuccess }) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [formData, setFormData] = useState({
-    name: "",
-    email: "",
+    phone: "",
     upiId: ""
   });
   const [errors, setErrors] = useState({});
@@ -14,11 +13,10 @@ export default function PaymentModal({ isOpen, onClose, onSuccess }) {
 
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.name.trim()) newErrors.name = "Name is required";
-    if (!formData.email.trim()) {
-      newErrors.email = "Email is required";
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = "Invalid email format";
+    if (!formData.phone.trim()) {
+      newErrors.phone = "Phone number is required";
+    } else if (!/^\d{10}$/.test(formData.phone.trim())) {
+      newErrors.phone = "Enter a valid 10-digit phone number";
     }
     if (!formData.upiId.trim()) {
       newErrors.upiId = "UPI ID is required";
@@ -66,7 +64,10 @@ export default function PaymentModal({ isOpen, onClose, onSuccess }) {
 
         <div className="payment-header">
           <h2 className="payment-title">Unlock Premium</h2>
-          <p className="payment-subtitle">See who&apos;s vibing with you</p>
+          <p className="payment-subtitle">
+            Congratulations - you&apos;ve unlocked your first month free as one of our
+            first 1,000 users
+          </p>
         </div>
 
         <div className="payment-features">
@@ -86,6 +87,10 @@ export default function PaymentModal({ isOpen, onClose, onSuccess }) {
             <span className="feature-icon">✓</span>
             <span>Unlimited vibes</span>
           </div>
+          <div className="payment-feature">
+            <span className="feature-icon">✓</span>
+            <span>See who texted you</span>
+          </div>
         </div>
 
         <div className="payment-price">
@@ -97,28 +102,6 @@ export default function PaymentModal({ isOpen, onClose, onSuccess }) {
           <div className="payment-field">
             <input
               type="text"
-              placeholder="Full Name"
-              value={formData.name}
-              onChange={handleChange("name")}
-              className={`payment-input ${errors.name ? "error" : ""}`}
-            />
-            {errors.name && <span className="field-error">{errors.name}</span>}
-          </div>
-
-          <div className="payment-field">
-            <input
-              type="email"
-              placeholder="Email Address"
-              value={formData.email}
-              onChange={handleChange("email")}
-              className={`payment-input ${errors.email ? "error" : ""}`}
-            />
-            {errors.email && <span className="field-error">{errors.email}</span>}
-          </div>
-
-          <div className="payment-field">
-            <input
-              type="text"
               placeholder="UPI ID (e.g. name@paytm)"
               value={formData.upiId}
               onChange={handleChange("upiId")}
@@ -127,9 +110,15 @@ export default function PaymentModal({ isOpen, onClose, onSuccess }) {
             {errors.upiId && <span className="field-error">{errors.upiId}</span>}
           </div>
 
-          <div className="test-mode-notice">
-            <span className="notice-icon">🧪</span>
-            <span>Test Mode - No real payment will be processed</span>
+          <div className="payment-field">
+            <input
+              type="text"
+              placeholder="Phone number (10 digits)"
+              value={formData.phone}
+              onChange={handleChange("phone")}
+              className={`payment-input ${errors.phone ? "error" : ""}`}
+            />
+            {errors.phone && <span className="field-error">{errors.phone}</span>}
           </div>
 
           {/* Payment Confirmation */}

@@ -40,7 +40,7 @@ router.post('/request-otp', async (req, res, next) => {
         // Placeholder values for required fields (will be replaced during registration)
         gender: 'other',
         college: 'TEMP',
-        year: 'Freshman',
+        year: '1st Year',
         age: 18,
       });
       // Skip validation for temp user - we'll validate when updating with real data
@@ -332,6 +332,54 @@ router.post('/login', async (req, res, next) => {
       },
     });
   } catch (error) {
+    next(error);
+  }
+});
+
+// Bypass onboarding for development/testing
+router.post('/bypass', async (req, res, next) => {
+  try {
+    // Find or create a test user
+    let user = await User.findOne({ email: 'test@bypass.com' });
+    
+    if (!user) {
+      // Create test user
+      user = new User({
+        email: 'test@bypass.com',
+        name: 'Test User',
+        gender: 'other',
+        college: 'Test University',
+        year: '3rd Year',
+        age: 20,
+        skills: ['Design', 'React'],
+        emailVerified: true, // Skip email verification for bypass
+        imageUrl: 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=800&q=80'
+      });
+      await user.save();
+    }
+
+    // Generate token
+    const token = generateToken(user);
+
+    res.json({
+      token,
+      user: {
+        id: user._id.toString(),
+        _id: user._id.toString(),
+        email: user.email,
+        name: user.name,
+        gender: user.gender,
+        college: user.college,
+        year: user.year,
+        age: user.age,
+        skills: user.skills,
+        imageUrl: user.imageUrl,
+        isPremium: user.isPremium || false,
+        emailVerified: user.emailVerified || false
+      }
+    });
+  } catch (error) {
+    console.error('Bypass error:', error);
     next(error);
   }
 });

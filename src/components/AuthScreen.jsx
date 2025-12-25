@@ -41,14 +41,9 @@ export default function AuthScreen({ onAuthSuccess }) {
       // Request OTP from backend
       const response = await authAPI.requestOTP(email.trim().toLowerCase(), null);
       
-      // In development, OTP is returned in the response
       if (response.otp) {
-        console.log('🔑 OTP (development mode):', response.otp);
-        // You can also show this to the user in development
         alert(`Development Mode: Your OTP is ${response.otp}`);
       }
-      
-      // Auto-fill college from email domain if available
       const universityName = extractUniversityFromEmail(email);
       if (universityName && !signupData.college) {
         setSignupData(prev => ({ ...prev, college: universityName }));
@@ -57,7 +52,6 @@ export default function AuthScreen({ onAuthSuccess }) {
       setIsNewUser(mode === "signup");
       setStep("otp");
     } catch (err) {
-      console.error("Request OTP error:", err);
       if (err.message.includes("Unable to connect") || err.message.includes("Failed to fetch")) {
         setError("Cannot connect to server. Please make sure the backend server is running (npm run server:dev)");
       } else if (mode === "login" && err.message.includes("not found")) {
@@ -85,18 +79,12 @@ export default function AuthScreen({ onAuthSuccess }) {
     try {
       const data = await authAPI.verifyOTP(email.trim().toLowerCase(), null, otp);
       
-      // Check if this is a new user based on API response
       if (data.isNewUser || isNewUser) {
-        // New user - proceed to signup form
-      setStep("signup");
-    } else {
-        // Existing user - login successful
-        // The API already set the token and user in localStorage
-        // We need to call onAuthSuccess with the user data
+        setStep("signup");
+      } else {
         onAuthSuccess(data.user, false);
       }
     } catch (err) {
-      console.error("Verify OTP error:", err);
       if (err.message.includes("Unable to connect") || err.message.includes("Failed to fetch")) {
         setError("Cannot connect to server. Please make sure the backend server is running (npm run server:dev)");
       } else {
@@ -152,14 +140,9 @@ export default function AuthScreen({ onAuthSuccess }) {
     };
     
       const data = await authAPI.register(userData);
-      
-      // Registration successful - user is logged in with JWT token
-      // Show success message about email verification
       alert("Account created! Please check your email to verify your account.");
-      
       onAuthSuccess(data.user, true);
     } catch (err) {
-      console.error("Register error:", err);
       if (err.message.includes("Unable to connect") || err.message.includes("Failed to fetch")) {
         setError("Cannot connect to server. Please make sure the backend server is running (npm run server:dev)");
       } else {
@@ -286,7 +269,6 @@ export default function AuthScreen({ onAuthSuccess }) {
                   setError("");
                   alert("OTP resent to your email!");
                 } catch (err) {
-                  console.error("Resend OTP error:", err);
                   if (err.message.includes("Unable to connect") || err.message.includes("Failed to fetch")) {
                     setError("Cannot connect to server. Please make sure the backend server is running (npm run server:dev)");
                   } else {
@@ -377,10 +359,11 @@ export default function AuthScreen({ onAuthSuccess }) {
                 className="auth-input auth-select"
               >
                 <option value="">Select year</option>
-                <option value="Freshman">Freshman</option>
-                <option value="Sophomore">Sophomore</option>
-                <option value="Junior">Junior</option>
-                <option value="Senior">Senior</option>
+                <option value="1st Year">1st Year</option>
+                <option value="2nd Year">2nd Year</option>
+                <option value="3rd Year">3rd Year</option>
+                <option value="4th Year">4th Year</option>
+                <option value="5th Year">5th Year</option>
               </select>
             </div>
 

@@ -37,7 +37,7 @@ const SKILLS = [
   "Film"
 ];
 
-const YEARS = ["Freshman", "Sophomore", "Junior", "Senior"];
+const YEARS = ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year"];
 
 const MALE_NAMES = [
   "Aarav", "Ethan", "Liam", "Noah", "Arjun", "Rohan", "Lucas", "Mateo",

@@ -19,7 +19,7 @@ const userSchema = new mongoose.Schema({
   year: {
     type: String,
     required: true,
-    enum: ['Freshman', 'Sophomore', 'Junior', 'Senior'],
+    enum: ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year'],
   },
   age: {
     type: Number,

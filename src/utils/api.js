@@ -1,8 +1,3 @@
-/**
- * API Client for Backend Communication
- * Handles all HTTP requests to the Node.js backend
- */
-
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 // Get auth token from localStorage
@@ -74,9 +69,7 @@ const apiRequest = async (endpoint, options = {}) => {
   }
 };
 
-// ============ AUTH API ============
 export const authAPI = {
-  // Request OTP for login
   requestOTP: async (email, phone) => {
     const data = await apiRequest('/auth/request-otp', {
       method: 'POST',
@@ -85,21 +78,18 @@ export const authAPI = {
     return data;
   },
 
-  // Verify OTP and login (or proceed to signup)
   verifyOTP: async (email, phone, otp) => {
     const data = await apiRequest('/auth/verify-otp', {
       method: 'POST',
       body: JSON.stringify({ email, phone, otp }),
     });
-    // Only set token and user if this is a login (not signup)
     if (data.token && data.user) {
-    setToken(data.token);
-    setCurrentUser(data.user);
+      setToken(data.token);
+      setCurrentUser(data.user);
     }
     return data;
   },
 
-  // Register new user
   register: async (userData) => {
     const data = await apiRequest('/auth/register', {
       method: 'POST',
@@ -110,7 +100,6 @@ export const authAPI = {
     return data;
   },
 
-  // Verify email with token
   verifyEmail: async (token) => {
     const data = await apiRequest(`/auth/verify-email?token=${token}`, {
       method: 'GET',
@@ -118,7 +107,6 @@ export const authAPI = {
     return data;
   },
 
-  // Resend verification email
   resendVerification: async () => {
     const data = await apiRequest('/auth/resend-verification', {
       method: 'POST',
@@ -126,7 +114,6 @@ export const authAPI = {
     return data;
   },
 
-  // Legacy login (for backward compatibility)
   login: async (phone, email) => {
     const data = await apiRequest('/auth/login', {
       method: 'POST',
@@ -137,20 +124,26 @@ export const authAPI = {
     return data;
   },
 
-  // Get current user info
   getMe: async () => {
     const data = await apiRequest('/auth/me');
     return data.user;
   },
 
-  // Logout
   logout: () => {
     setToken(null);
     setCurrentUser(null);
   },
+
+  bypass: async () => {
+    const data = await apiRequest('/auth/bypass', {
+      method: 'POST',
+    });
+    setToken(data.token);
+    setCurrentUser(data.user);
+    return data;
+  },
 };
 
-// ============ USERS API ============
 export const usersAPI = {
   getAll: async () => {
     const data = await apiRequest('/users');
@@ -179,7 +172,6 @@ export const usersAPI = {
   },
 };
 
-// ============ NOTIFICATIONS API ============
 export const notificationsAPI = {
   getAll: async () => {
     const data = await apiRequest('/notifications');
@@ -205,7 +197,6 @@ export const notificationsAPI = {
   },
 };
 
-// ============ MATCHES API ============
 export const matchesAPI = {
   getAll: async () => {
     const data = await apiRequest('/matches');
@@ -218,7 +209,6 @@ export const matchesAPI = {
   },
 };
 
-// ============ MESSAGES API ============
 export const messagesAPI = {
   getConversation: async (otherUserId) => {
     const data = await apiRequest(`/messages/conversation/${otherUserId}`);
@@ -240,7 +230,6 @@ export const messagesAPI = {
   },
 };
 
-// ============ MESSAGE REQUESTS API ============
 export const messageRequestsAPI = {
   getAll: async (status = null) => {
     const endpoint = status ? `/message-requests?status=${status}` : '/message-requests';
@@ -275,6 +264,5 @@ export const messageRequestsAPI = {
   },
 };
 
-// Export utility functions
 export { getToken, setToken, getCurrentUser, setCurrentUser };
 
