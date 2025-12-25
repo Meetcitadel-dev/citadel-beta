@@ -1,4 +1,5 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+// In development, use proxy. In production, use same origin or env variable
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 // Get auth token from localStorage
 const getToken = () => {
@@ -61,9 +62,8 @@ const apiRequest = async (endpoint, options = {}) => {
 
   return response.json();
   } catch (error) {
-    // Handle network errors, CORS issues, etc.
     if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      throw new Error('Unable to connect to server. Please make sure the backend server is running on http://localhost:3001');
+      throw new Error('Unable to connect to server. Please make sure the backend server is running.');
     }
     throw error;
   }
