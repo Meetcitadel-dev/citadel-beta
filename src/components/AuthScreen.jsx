@@ -38,8 +38,9 @@ export default function AuthScreen({ onAuthSuccess }) {
     
     setIsLoading(true);
     try {
-      // Request OTP from backend
+      console.log('📧 Requesting OTP for:', email.trim().toLowerCase());
       const response = await authAPI.requestOTP(email.trim().toLowerCase(), null);
+      console.log('✅ OTP Response:', response);
       
       if (response.otp) {
         alert(`Development Mode: Your OTP is ${response.otp}`);
@@ -52,13 +53,18 @@ export default function AuthScreen({ onAuthSuccess }) {
       setIsNewUser(mode === "signup");
       setStep("otp");
     } catch (err) {
+      console.error('Signup error:', err);
       if (err.message.includes("Unable to connect") || err.message.includes("Failed to fetch")) {
         setError("Cannot connect to server. Please make sure the backend server is running (npm run server:dev)");
-      } else if (mode === "login" && err.message.includes("not found")) {
-        setError("No account found with this email. Please sign up first.");
-      } else if (mode === "signup" && err.message.includes("already exists")) {
+      } else if (err.message.includes("not found") || err.message.includes("404")) {
+        if (mode === "login") {
+          setError("No account found with this email. Please sign up first.");
+        } else {
+          setError("Server error: API endpoint not found. Please check the console for details.");
+        }
+      } else if (err.message.includes("already exists")) {
         setError("Account already exists with this email. Please login instead.");
-    } else {
+      } else {
         setError(err.message || "Failed to send OTP. Please try again.");
       }
     } finally {

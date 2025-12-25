@@ -42,20 +42,34 @@ const apiRequest = async (endpoint, options = {}) => {
     headers.Authorization = `Bearer ${token}`;
   }
 
+  const url = `${API_BASE_URL}${endpoint}`;
+  console.log('🌐 API Request:', url, options.method || 'GET');
+
   try {
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+  const response = await fetch(url, {
     ...options,
     headers,
   });
+  
+  console.log('📡 API Response:', response.status, response.statusText, response.url);
 
   if (!response.ok) {
       let errorMessage = `HTTP error! status: ${response.status}`;
-      try {
-        const errorData = await response.json();
-        errorMessage = errorData.error || errorMessage;
-      } catch (e) {
-        // If response is not JSON, use status text
-        errorMessage = response.statusText || errorMessage;
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          errorMessage = response.statusText || errorMessage;
+        }
+      } else {
+        // If not JSON, check status
+        if (response.status === 404) {
+          errorMessage = 'API endpoint not found. Please check the server configuration.';
+        } else {
+          errorMessage = response.statusText || errorMessage;
+        }
       }
       throw new Error(errorMessage);
   }

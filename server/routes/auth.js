@@ -25,7 +25,8 @@ router.post('/request-otp', async (req, res, next) => {
       // Existing user - save OTP for login
       user.otp = otp;
       user.otpExpires = otpExpires;
-      await user.save();
+      // Skip validation when only updating OTP fields
+      await user.save({ validateBeforeSave: false });
     } else {
       // New user - create temporary user record with just email/phone and OTP for signup
       // This allows OTP verification before full registration
@@ -107,7 +108,7 @@ router.post('/verify-otp', async (req, res, next) => {
     // Clear OTP
     user.otp = null;
     user.otpExpires = null;
-    await user.save();
+    await user.save({ validateBeforeSave: false });
 
     // Check if this is a temporary user (signup flow) or existing user (login flow)
     const isTemporaryUser = user.name === 'TEMP_USER';
