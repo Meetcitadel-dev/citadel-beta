@@ -14,11 +14,13 @@ const DB_KEYS = {
 };
 
 // Initialize database with default data.
-// Always overwrite the USERS list so changes to the seed data (USERS) take effect,
+// Note: Users are now managed via backend API, this is kept for backward compatibility
 // and reset interactions so tests always start from a clean slate.
 export function initializeDB(defaultUsers) {
-  // Always refresh users from the provided default seed
-  localStorage.setItem(DB_KEYS.USERS, JSON.stringify(defaultUsers));
+  // Store users if provided (for backward compatibility, but users should come from API)
+  if (defaultUsers) {
+    localStorage.setItem(DB_KEYS.USERS, JSON.stringify(defaultUsers));
+  }
 
   // Always reset interactions (vibes/notifications, matches, messages, requests)
   // so all profiles start with zero counts for testing.

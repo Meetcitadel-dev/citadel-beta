@@ -45,10 +45,41 @@ export default function ProfileScreen({ user, onUpdate, onLogout }) {
   const handleImageUpload = (event) => {
     const file = event.target.files?.[0];
     if (file) {
+      // Validate file size (max 5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+      if (file.size > maxSize) {
+        alert('Image size is too large. Please choose an image smaller than 5MB.');
+        // Reset file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        return;
+      }
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select a valid image file.');
+        // Reset file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = (e) => {
-        setForm((prev) => ({ ...prev, imageUrl: e.target.result }));
+        // Store the base64 data URL
+        const dataUrl = e.target.result;
+        console.log('📷 Image uploaded, size:', dataUrl.length, 'characters');
+        setForm((prev) => ({ ...prev, imageUrl: dataUrl }));
         setSaved(false);
+      };
+      reader.onerror = () => {
+        alert('Error reading image file. Please try again.');
+        // Reset file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -69,8 +100,21 @@ export default function ProfileScreen({ user, onUpdate, onLogout }) {
       college: form.college.trim() || user.college,
       year: form.year || user.year,
       skills: skillList,
-      imageUrl: form.imageUrl || user.imageUrl
+      // Always include imageUrl - use form value if set, otherwise keep existing
+      imageUrl: form.imageUrl || user.imageUrl || ''
     };
+    
+    // Ensure we have the user ID
+    if (!next.id && !next._id) {
+      console.error('Cannot update profile: missing user ID');
+      return;
+    }
+    
+    // Log image info for debugging
+    if (next.imageUrl) {
+      console.log('📷 Saving profile with image, length:', next.imageUrl.length, 'characters');
+    }
+    
     onUpdate?.(next);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);

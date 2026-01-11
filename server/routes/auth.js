@@ -4,6 +4,7 @@ const router = express.Router();
 const User = require('../models/User');
 const { generateToken, authenticate } = require('../middleware/auth');
 const { sendVerificationEmail, sendOTPEmail } = require('../services/email');
+const { logNewUserEmail } = require('../utils/userLogger');
 
 // Request OTP for login or signup
 router.post('/request-otp', async (req, res, next) => {
@@ -70,10 +71,16 @@ router.post('/request-otp', async (req, res, next) => {
 
     res.json({ 
       message: 'OTP sent successfully',
-      // In development, return OTP for testing (remove in production)
-      ...(process.env.NODE_ENV !== 'production' && { otp })
+      // Always return OTP for demo/testing purposes
+      otp: otp,
+      userExists: userExists // Indicate if user already exists
     });
   } catch (error) {
+    console.error('Request OTP error:', error);
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(e => e.message);
+      return res.status(400).json({ error: errors.join(', ') });
+    }
     next(error);
   }
 });
@@ -129,9 +136,16 @@ router.post('/verify-otp', async (req, res, next) => {
         token,
         user: {
           id: user._id,
+          _id: user._id,
           name: user.name,
           email: user.email,
           phone: user.phone,
+          gender: user.gender,
+          age: user.age,
+          college: user.college,
+          year: user.year,
+          skills: user.skills || [],
+          imageUrl: user.imageUrl || '',
           isPremium: user.isPremium,
           emailVerified: user.emailVerified,
         },
@@ -139,6 +153,11 @@ router.post('/verify-otp', async (req, res, next) => {
       });
     }
   } catch (error) {
+    console.error('Verify OTP error:', error);
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(e => e.message);
+      return res.status(400).json({ error: errors.join(', ') });
+    }
     next(error);
   }
 });
@@ -155,17 +174,33 @@ router.post('/register', async (req, res, next) => {
     // Find existing user (should be the temporary one created during OTP request)
     let user = await User.findOne({ $or: [{ phone }, { email }] });
     
+    // If user exists and is not a temporary user, check if they're trying to register again
     if (user && user.name !== 'TEMP_USER') {
-      // User already exists and is not temporary
-      return res.status(400).json({ error: 'User already exists with this email or phone' });
+      // Check if this is a complete registered user (has all required fields filled)
+      // A complete user should have: name, college (not TEMP), and proper gender
+      const isCompleteUser = user.name && 
+                            user.name !== 'TEMP_USER' && 
+                            user.college && 
+                            user.college !== 'TEMP' &&
+                            user.gender &&
+                            user.gender !== 'other';
+      
+      if (isCompleteUser) {
+        // This is a fully registered user - they should login instead
+        return res.status(400).json({ 
+          error: 'User already exists with this email or phone. Please login instead.' 
+        });
+      }
+      // If user exists but is incomplete (maybe from a failed registration), allow registration to complete it
+      // We'll update this user below
     }
 
     // Generate email verification token
     const verificationToken = crypto.randomBytes(32).toString('hex');
     const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-    if (user && user.name === 'TEMP_USER') {
-      // Update temporary user with full registration data
+    if (user) {
+      // Update existing user (either TEMP_USER or incomplete user) with full registration data
       user.name = name;
       user.gender = gender;
       user.college = college;
@@ -176,10 +211,13 @@ router.post('/register', async (req, res, next) => {
       user.emailVerificationToken = verificationToken;
       user.emailVerificationExpires = verificationExpires;
       user.emailVerified = false;
+      // Update email/phone if provided
+      if (email) user.email = email;
+      if (phone) user.phone = phone;
       // Validate before saving the updated user data
       await user.save({ validateBeforeSave: true });
     } else {
-      // Create new user (fallback if temp user wasn't found)
+      // Create new user (fallback if no user was found)
       user = new User({
         name,
         gender,
@@ -208,21 +246,38 @@ router.post('/register', async (req, res, next) => {
     // Generate JWT token (user can use app but email not verified)
     const token = generateToken(user._id.toString());
 
+    // Log new user email to file
+    if (email) {
+      await logNewUserEmail(email);
+    }
+
     res.status(201).json({
       token,
       user: {
         id: user._id,
+        _id: user._id,
         name: user.name,
         email: user.email,
         phone: user.phone,
+        gender: user.gender,
+        age: user.age,
+        college: user.college,
+        year: user.year,
+        skills: user.skills || [],
+        imageUrl: user.imageUrl || '',
         isPremium: user.isPremium,
         emailVerified: false,
       },
       message: 'Account created. Please check your email to verify your account.',
     });
   } catch (error) {
+    console.error('Registration error:', error);
     if (error.code === 11000) {
       return res.status(400).json({ error: 'Phone or email already exists' });
+    }
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(e => e.message);
+      return res.status(400).json({ error: errors.join(', ') });
     }
     next(error);
   }
@@ -294,11 +349,28 @@ router.post('/resend-verification', authenticate, async (req, res, next) => {
 // Get current user info
 router.get('/me', authenticate, async (req, res, next) => {
   try {
-    const user = await User.findById(req.userId).select('-__v -otp -otpExpires -emailVerificationToken');
+    const user = await User.findById(req.userId).select('-__v -otp -otpExpires -emailVerificationToken -emailVerificationExpires');
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    res.json({ user });
+    // Return user with all fields
+    res.json({ 
+      user: {
+        id: user._id,
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        gender: user.gender,
+        age: user.age,
+        college: user.college,
+        year: user.year,
+        skills: user.skills || [],
+        imageUrl: user.imageUrl || '',
+        isPremium: user.isPremium,
+        emailVerified: user.emailVerified,
+      }
+    });
   } catch (error) {
     next(error);
   }
@@ -333,54 +405,6 @@ router.post('/login', async (req, res, next) => {
       },
     });
   } catch (error) {
-    next(error);
-  }
-});
-
-// Bypass onboarding for development/testing
-router.post('/bypass', async (req, res, next) => {
-  try {
-    // Find or create a test user
-    let user = await User.findOne({ email: 'test@bypass.com' });
-    
-    if (!user) {
-      // Create test user
-      user = new User({
-        email: 'test@bypass.com',
-        name: 'Test User',
-        gender: 'other',
-        college: 'Test University',
-        year: '3rd Year',
-        age: 20,
-        skills: ['Design', 'React'],
-        emailVerified: true, // Skip email verification for bypass
-        imageUrl: 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=800&q=80'
-      });
-      await user.save();
-    }
-
-    // Generate token
-    const token = generateToken(user);
-
-    res.json({
-      token,
-      user: {
-        id: user._id.toString(),
-        _id: user._id.toString(),
-        email: user.email,
-        name: user.name,
-        gender: user.gender,
-        college: user.college,
-        year: user.year,
-        age: user.age,
-        skills: user.skills,
-        imageUrl: user.imageUrl,
-        isPremium: user.isPremium || false,
-        emailVerified: user.emailVerified || false
-      }
-    });
-  } catch (error) {
-    console.error('Bypass error:', error);
     next(error);
   }
 });

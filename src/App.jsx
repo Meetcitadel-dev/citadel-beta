@@ -1,15 +1,13 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
-import { USERS as DEFAULT_USERS } from "./data/users.js";
 import { generateAdjectives } from "./data/adjectives.js";
 import db from "./data/db.js";
-import { authAPI, getToken, getCurrentUser } from "./utils/api.js";
+import { authAPI, usersAPI, getToken, getCurrentUser } from "./utils/api.js";
 import AuthScreen from "./components/AuthScreen.jsx";
 import EmailVerificationScreen from "./components/EmailVerificationScreen.jsx";
 import DiscoverScreen from "./components/DiscoverScreen.jsx";
 import InboxScreen from "./components/InboxScreen.jsx";
 import MessagesScreen from "./components/MessagesScreen.jsx";
 import ChatScreen from "./components/ChatScreen.jsx";
-import AccountSwitcherScreen from "./components/AccountSwitcherScreen.jsx";
 import ProfileScreen from "./components/ProfileScreen.jsx";
 import PaymentModal from "./components/PaymentModal.jsx";
 
@@ -28,10 +26,48 @@ export default function App() {
   const [isPremium, setIsPremium] = useState(false);
   const [chatUser, setChatUser] = useState(null);
 
+  // Load users from backend API
+  const loadUsers = useCallback(async () => {
+    try {
+      const backendUsers = await usersAPI.getAll();
+      // Transform backend users to match frontend format
+      const transformedUsers = backendUsers.map(user => ({
+        id: user._id || user.id,
+        _id: user._id || user.id,
+        name: user.name,
+        gender: user.gender,
+        college: user.college,
+        year: user.year,
+        age: user.age,
+        skills: user.skills || [],
+        imageUrl: user.imageUrl || '',
+        isPremium: user.isPremium || false,
+        email: user.email,
+        phone: user.phone
+      }));
+      // Merge with existing users (don't overwrite, just update/add)
+      setUsers(prev => {
+        const merged = [...prev];
+        transformedUsers.forEach(newUser => {
+          const index = merged.findIndex(u => (u.id === newUser.id || u._id === newUser.id));
+          if (index >= 0) {
+            merged[index] = newUser;
+          } else {
+            merged.push(newUser);
+          }
+        });
+        return merged;
+      });
+    } catch (error) {
+      console.error('Failed to load users:', error);
+      // Don't clear users array on error, just log it
+      // This way if the API fails, we still have the logged-in user
+    }
+  }, []);
+
   // Initialize database and load data on mount
   useEffect(() => {
-    db.init(DEFAULT_USERS);
-    setUsers(db.users.getAll());
+    // Initialize localStorage for notifications, matches, messages, requests
     setNotifications(db.notifications.getAll());
     setMatches(db.matches.getAll());
     setMessages(db.messages.getAll());
@@ -39,86 +75,91 @@ export default function App() {
     
     // Check if user is already authenticated via JWT
     const checkAuth = async () => {
-      // Check for bypass flag (URL parameter or localStorage)
-      const urlParams = new URLSearchParams(window.location.search);
-      const bypassParam = urlParams.get('bypass');
-      const bypassStorage = localStorage.getItem('bypass_onboarding');
-      const shouldBypass = bypassParam === 'true' || bypassStorage === 'true';
-      
-      if (shouldBypass) {
-        localStorage.setItem('bypass_onboarding', 'true');
-        try {
-          const data = await authAPI.bypass();
-          if (data && data.user) {
-            setLoggedInUserId(data.user.id || data.user._id);
-            setIsAuthenticated(true);
-            setIsPremium(data.user.isPremium || false);
-            setActiveTab('discover');
-            setIsLoaded(true);
-            if (bypassParam === 'true') {
-              window.history.replaceState({}, document.title, window.location.pathname);
-            }
-            return;
-          }
-          throw new Error('Invalid response from bypass endpoint');
-        } catch (error) {
-          console.error('Bypass authentication failed:', error);
-          localStorage.removeItem('bypass_onboarding');
-        }
-      }
-      
       const token = getToken();
       const storedUser = getCurrentUser();
       
       if (token && storedUser) {
         try {
           const user = await authAPI.getMe();
-          setLoggedInUserId(user.id || user._id);
+          const userId = user._id || user.id;
+          setLoggedInUserId(userId);
           setIsAuthenticated(true);
           setIsPremium(user.isPremium || false);
+          // Fetch users from backend
+          await loadUsers();
         } catch (error) {
+          console.error('Auth check failed:', error);
           authAPI.logout();
           localStorage.removeItem('citadel_auth_user');
           localStorage.removeItem('citadel_is_premium');
         }
       } else {
-        const authUser = localStorage.getItem('citadel_auth_user');
-        if (authUser) {
-          try {
-            const parsed = JSON.parse(authUser);
-            setLoggedInUserId(parsed.id);
-            setIsAuthenticated(true);
-            const premiumData = localStorage.getItem('citadel_is_premium');
-            if (premiumData) {
-              const premiumParsed = JSON.parse(premiumData);
-              if (typeof premiumParsed === 'object' && premiumParsed !== null) {
-                setIsPremium(premiumParsed[parsed.id] === true);
-              }
-            }
-          } catch (e) {
-            localStorage.removeItem('citadel_auth_user');
+    const authUser = localStorage.getItem('citadel_auth_user');
+    if (authUser) {
+      try {
+        const parsed = JSON.parse(authUser);
+            const userId = parsed._id || parsed.id;
+            setLoggedInUserId(userId);
+        setIsAuthenticated(true);
+        const premiumData = localStorage.getItem('citadel_is_premium');
+        if (premiumData) {
+          const premiumParsed = JSON.parse(premiumData);
+          if (typeof premiumParsed === 'object' && premiumParsed !== null) {
+                setIsPremium(premiumParsed[userId] === true);
           }
         }
+            // Fetch users from backend
+            await loadUsers();
+      } catch (e) {
+        localStorage.removeItem('citadel_auth_user');
+          }
       }
+    }
     setIsLoaded(true);
     };
-    
-    checkAuth();
-  }, []);
 
-  const handleAuthSuccess = useCallback((user, isNewUser) => {
-    const userId = user.id || user._id;
-    if (isNewUser) {
-      db.users.create(user);
-      setUsers(db.users.getAll());
-    }
+    checkAuth();
+  }, [loadUsers]);
+
+  const handleAuthSuccess = useCallback(async (user, isNewUser) => {
+    const userId = user._id || user.id;
     localStorage.setItem('citadel_auth_user', JSON.stringify(user));
     db.session.setCurrentUserId(userId);
     setLoggedInUserId(userId);
     setIsAuthenticated(true);
     setIsPremium(user.isPremium || false);
     setCurrentIndex(0);
-  }, []);
+    
+    // Add current user to users array immediately so loggedInUser is available
+    const transformedUser = {
+      id: user._id || user.id,
+      _id: user._id || user.id,
+      name: user.name,
+      gender: user.gender,
+      college: user.college,
+      year: user.year,
+      age: user.age,
+      skills: user.skills || [],
+      imageUrl: user.imageUrl || '',
+      isPremium: user.isPremium || false,
+      email: user.email,
+      phone: user.phone
+    };
+    setUsers(prev => {
+      // Check if user already exists, if not add it
+      const exists = prev.find(u => (u.id === userId || u._id === userId));
+      if (exists) {
+        return prev.map(u => (u.id === userId || u._id === userId) ? transformedUser : u);
+      }
+      return [transformedUser, ...prev];
+    });
+
+    // Reload users from backend after authentication (non-blocking)
+    loadUsers().catch(err => {
+      console.error('Failed to load users from backend:', err);
+      // Don't block the UI if this fails
+    });
+  }, [loadUsers]);
 
   const handleLogout = useCallback(() => {
     authAPI.logout();
@@ -128,6 +169,7 @@ export default function App() {
     setLoggedInUserId(null);
     setIsPremium(false);
   }, []);
+
   useEffect(() => {
     if (isLoaded) {
       try {
@@ -168,6 +210,7 @@ export default function App() {
     setIsPremium(true);
     setShowPaymentModal(false);
   }, [loggedInUserId]);
+
   useEffect(() => {
     if (isLoaded && notifications.length > 0) {
       localStorage.setItem('citadel_notifications', JSON.stringify(notifications));
@@ -198,24 +241,85 @@ export default function App() {
     }
   }, [loggedInUserId, isLoaded]);
 
-  const loggedInUser = useMemo(
-    () => users.find((u) => u.id === loggedInUserId) ?? users[0],
-    [users, loggedInUserId]
-  );
+  const loggedInUser = useMemo(() => {
+    if (!loggedInUserId) return null;
+    return users.find((u) => (u.id === loggedInUserId || u._id === loggedInUserId)) || null;
+  }, [users, loggedInUserId]);
 
-  const handleProfileUpdate = useCallback((updatedUser) => {
-    if (db.users.update(updatedUser.id, updatedUser)) {
-      setUsers(db.users.getAll());
+  const handleProfileUpdate = useCallback(async (updatedUser) => {
+    try {
+      const userId = updatedUser._id || updatedUser.id;
+      if (!userId) {
+        console.error('Cannot update profile: missing user ID');
+        alert('Error: User ID not found. Please try logging in again.');
+        return;
+      }
+
+      // Prepare update data - ensure imageUrl is included
+      const updateData = {
+        name: updatedUser.name,
+        gender: updatedUser.gender,
+        college: updatedUser.college,
+        year: updatedUser.year,
+        age: updatedUser.age,
+        skills: updatedUser.skills,
+        imageUrl: updatedUser.imageUrl || '' // Always include imageUrl, even if empty
+      };
+      
+      console.log('📤 Sending profile update:', {
+        userId,
+        hasImage: !!updateData.imageUrl,
+        imageLength: updateData.imageUrl ? updateData.imageUrl.length : 0
+      });
+      
+      const updated = await usersAPI.update(userId, updateData);
+      
+      // Update local state immediately - updated is already the user object
+      setUsers(prev => prev.map(u => 
+        (u.id === userId || u._id === userId) ? { ...u, ...updated } : u
+      ));
+      
+      // Update localStorage with new user data
+      const authUser = localStorage.getItem('citadel_auth_user');
+      if (authUser) {
+        try {
+          const parsed = JSON.parse(authUser);
+          if (parsed._id === userId || parsed.id === userId) {
+            const updatedAuthUser = { ...parsed, ...updated };
+            localStorage.setItem('citadel_auth_user', JSON.stringify(updatedAuthUser));
+          }
+        } catch (e) {
+          console.error('Error updating localStorage:', e);
+        }
+      }
+      
+      // Update loggedInUser state if it's the current user
+      if (loggedInUserId === userId) {
+        // Force a re-render by updating the users array
+        // The loggedInUser memo will pick up the changes
+      }
+      
+      // Reload users to ensure consistency
+      await loadUsers();
+      
+      console.log('✅ Profile updated successfully:', updated);
+    } catch (error) {
+      console.error('❌ Failed to update profile:', error);
+      alert('Failed to save changes. Please try again.');
     }
-  }, []);
+  }, [loadUsers, loggedInUserId]);
+
   const matchedUserIds = useMemo(() => {
     const ids = new Set();
     if (!loggedInUser) return ids;
     matches.forEach((m) => {
-      if (m.user1Id === loggedInUser.id) {
-        ids.add(m.user2Id);
-      } else if (m.user2Id === loggedInUser.id) {
-        ids.add(m.user1Id);
+      const user1Id = m.user1Id?._id || m.user1Id?.id || m.user1Id;
+      const user2Id = m.user2Id?._id || m.user2Id?.id || m.user2Id;
+      const loggedInId = loggedInUser._id || loggedInUser.id;
+      if (user1Id === loggedInId) {
+        ids.add(user2Id);
+      } else if (user2Id === loggedInId) {
+        ids.add(user1Id);
       }
     });
     return ids;
@@ -224,11 +328,14 @@ export default function App() {
   const sentAdjectivesMap = useMemo(() => {
     const map = new Map();
     if (!loggedInUser) return map;
+    const loggedInId = loggedInUser._id || loggedInUser.id;
     notifications.forEach((n) => {
-      if (n.fromUserId === loggedInUser.id) {
-        const existing = map.get(n.toUserId);
+      const fromUserId = n.fromUserId?._id || n.fromUserId?.id || n.fromUserId;
+      if (fromUserId === loggedInId) {
+        const toUserId = n.toUserId?._id || n.toUserId?.id || n.toUserId;
+        const existing = map.get(toUserId);
         if (!existing || n.createdAt > existing) {
-          map.set(n.toUserId, n.createdAt);
+          map.set(toUserId, n.createdAt);
         }
       }
     });
@@ -237,12 +344,16 @@ export default function App() {
 
   const visibleUsers = useMemo(() => {
     if (!loggedInUser) return [];
-    const filtered = users.filter(
-      (u) => u.id !== loggedInUser.id && !matchedUserIds.has(u.id)
-    );
+    const loggedInId = loggedInUser._id || loggedInUser.id;
+    const filtered = users.filter((u) => {
+      const userId = u._id || u.id;
+      return userId !== loggedInId && !matchedUserIds.has(userId);
+    });
     return filtered.sort((a, b) => {
-      const aTime = sentAdjectivesMap.get(a.id);
-      const bTime = sentAdjectivesMap.get(b.id);
+      const aId = a._id || a.id;
+      const bId = b._id || b.id;
+      const aTime = sentAdjectivesMap.get(aId);
+      const bTime = sentAdjectivesMap.get(bId);
       if (!aTime && !bTime) return 0;
       if (aTime && !bTime) return 1;
       if (!aTime && bTime) return -1;
@@ -254,9 +365,13 @@ export default function App() {
 
   const adjectiveFromProfile = useMemo(() => {
     if (!currentProfile || !loggedInUser) return null;
-    const sent = notifications.find(
-      (n) => n.fromUserId === currentProfile.id && n.toUserId === loggedInUser.id
-    );
+    const currentProfileId = currentProfile._id || currentProfile.id;
+    const loggedInId = loggedInUser._id || loggedInUser.id;
+    const sent = notifications.find((n) => {
+      const fromUserId = n.fromUserId?._id || n.fromUserId?.id || n.fromUserId;
+      const toUserId = n.toUserId?._id || n.toUserId?.id || n.toUserId;
+      return fromUserId === currentProfileId && toUserId === loggedInId;
+    });
     return sent?.adjective ?? null;
   }, [notifications, currentProfile, loggedInUser]);
 
@@ -273,11 +388,14 @@ export default function App() {
       return next >= visibleUsers.length ? 0 : next;
     });
   };
+
   const vibesSentToday = useMemo(() => {
     if (!loggedInUser) return 0;
+    const loggedInId = loggedInUser._id || loggedInUser.id;
     const today = new Date().toDateString();
     return notifications.filter(n => {
-      if (n.fromUserId !== loggedInUser.id) return false;
+      const fromUserId = n.fromUserId?._id || n.fromUserId?.id || n.fromUserId;
+      if (fromUserId !== loggedInId) return false;
       const notificationDate = new Date(n.createdAt).toDateString();
       return notificationDate === today;
     }).length;
@@ -286,10 +404,13 @@ export default function App() {
   const handleAdjectiveSelect = (adjective) => {
     if (!currentProfile || (!isPremium && vibesSentToday >= 10)) return;
     
+    const loggedInId = loggedInUser._id || loggedInUser.id;
+    const currentProfileId = currentProfile._id || currentProfile.id;
+    
     const entry = {
       id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      fromUserId: loggedInUser.id,
-      toUserId: currentProfile.id,
+      fromUserId: loggedInId,
+      toUserId: currentProfileId,
       adjective,
       createdAt: new Date().toISOString()
     };
@@ -298,8 +419,8 @@ export default function App() {
     if (adjectiveFromProfile && adjective === adjectiveFromProfile) {
       const matchEntry = {
         id: `match-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-        user1Id: loggedInUser.id,
-        user2Id: currentProfile.id,
+        user1Id: loggedInId,
+        user2Id: currentProfileId,
         adjective,
         createdAt: new Date().toISOString()
       };
@@ -311,23 +432,45 @@ export default function App() {
   const inboxItems = useMemo(
     () => {
       if (!loggedInUser) return [];
+      const loggedInId = loggedInUser._id || loggedInUser.id;
       return notifications
-        .filter((n) => n.toUserId === loggedInUser.id && !matchedUserIds.has(n.fromUserId))
-        .map((n) => ({
-          ...n,
-          fromUser: users.find((u) => u.id === n.fromUserId)
-        }));
+        .filter((n) => {
+          const toUserId = n.toUserId?._id || n.toUserId?.id || n.toUserId;
+          const fromUserId = n.fromUserId?._id || n.fromUserId?.id || n.fromUserId;
+          return toUserId === loggedInId && !matchedUserIds.has(fromUserId);
+        })
+        .map((n) => {
+          const fromUserId = n.fromUserId?._id || n.fromUserId?.id || n.fromUserId;
+          return {
+            ...n,
+            fromUser: users.find((u) => {
+              const userId = u._id || u.id;
+              return userId === fromUserId;
+            })
+          };
+        });
     },
     [notifications, loggedInUser, matchedUserIds, users]
   );
+
   const matchItems = useMemo(
     () => {
       if (!loggedInUser) return [];
+      const loggedInId = loggedInUser._id || loggedInUser.id;
       return matches
-        .filter((m) => m.user1Id === loggedInUser.id || m.user2Id === loggedInUser.id)
+        .filter((m) => {
+          const user1Id = m.user1Id?._id || m.user1Id?.id || m.user1Id;
+          const user2Id = m.user2Id?._id || m.user2Id?.id || m.user2Id;
+          return user1Id === loggedInId || user2Id === loggedInId;
+        })
         .map((m) => {
-          const otherUserId = m.user1Id === loggedInUser.id ? m.user2Id : m.user1Id;
-          const otherUser = users.find((u) => u.id === otherUserId);
+          const user1Id = m.user1Id?._id || m.user1Id?.id || m.user1Id;
+          const user2Id = m.user2Id?._id || m.user2Id?.id || m.user2Id;
+          const otherUserId = user1Id === loggedInId ? user2Id : user1Id;
+          const otherUser = users.find((u) => {
+            const userId = u._id || u.id;
+            return userId === otherUserId;
+          });
           return {
             ...m,
             otherUser
@@ -339,39 +482,58 @@ export default function App() {
 
   const currentProfileMatchesCount = useMemo(() => {
     if (!currentProfile) return 0;
-    return matches.filter(
-      (m) => m.user1Id === currentProfile.id || m.user2Id === currentProfile.id
-    ).length;
+    const currentProfileId = currentProfile._id || currentProfile.id;
+    return matches.filter((m) => {
+      const user1Id = m.user1Id?._id || m.user1Id?.id || m.user1Id;
+      const user2Id = m.user2Id?._id || m.user2Id?.id || m.user2Id;
+      return user1Id === currentProfileId || user2Id === currentProfileId;
+    }).length;
   }, [matches, currentProfile]);
+
   const conversations = useMemo(() => {
     if (!loggedInUser) return [];
+    const loggedInId = loggedInUser._id || loggedInUser.id;
     
     const matchConvos = matchItems
       .map(m => {
-        const convMessages = messages.filter(msg =>
-          (msg.fromUserId === loggedInUser.id && msg.toUserId === m.otherUser?.id) ||
-          (msg.fromUserId === m.otherUser?.id && msg.toUserId === loggedInUser.id)
-        );
-        const lastMsg = convMessages[convMessages.length - 1];
+        const otherUserId = m.otherUser?._id || m.otherUser?.id || m.otherUser;
+        const convMessages = messages.filter(msg => {
+          const fromUserId = msg.fromUserId?._id || msg.fromUserId?.id || msg.fromUserId;
+          const toUserId = msg.toUserId?._id || msg.toUserId?.id || msg.toUserId;
+          return (fromUserId === loggedInId && toUserId === otherUserId) ||
+                 (fromUserId === otherUserId && toUserId === loggedInId);
+        });
+      const lastMsg = convMessages[convMessages.length - 1];
         if (!lastMsg) return null;
-        return {
-          ...m,
-          type: 'match',
+      return {
+        ...m,
+        type: 'match',
           lastMessage: lastMsg.text,
           lastMessageAt: lastMsg.createdAt
-        };
+      };
       })
       .filter(Boolean);
 
     const acceptedRequests = messageRequests
-      .filter(r => r.status === 'accepted' && (r.fromUserId === loggedInUser.id || r.toUserId === loggedInUser.id))
+      .filter(r => {
+        const fromUserId = r.fromUserId?._id || r.fromUserId?.id || r.fromUserId;
+        const toUserId = r.toUserId?._id || r.toUserId?.id || r.toUserId;
+        return r.status === 'accepted' && (fromUserId === loggedInId || toUserId === loggedInId);
+      })
       .map(r => {
-        const otherUserId = r.fromUserId === loggedInUser.id ? r.toUserId : r.fromUserId;
-        const otherUser = users.find(u => u.id === otherUserId);
-        const convMessages = messages.filter(msg =>
-          (msg.fromUserId === loggedInUser.id && msg.toUserId === otherUserId) ||
-          (msg.fromUserId === otherUserId && msg.toUserId === loggedInUser.id)
-        );
+        const fromUserId = r.fromUserId?._id || r.fromUserId?.id || r.fromUserId;
+        const toUserId = r.toUserId?._id || r.toUserId?.id || r.toUserId;
+        const otherUserId = fromUserId === loggedInId ? toUserId : fromUserId;
+        const otherUser = users.find(u => {
+          const userId = u._id || u.id;
+          return userId === otherUserId;
+        });
+        const convMessages = messages.filter(msg => {
+          const msgFromUserId = msg.fromUserId?._id || msg.fromUserId?.id || msg.fromUserId;
+          const msgToUserId = msg.toUserId?._id || msg.toUserId?.id || msg.toUserId;
+          return (msgFromUserId === loggedInId && msgToUserId === otherUserId) ||
+                 (msgFromUserId === otherUserId && msgToUserId === loggedInId);
+        });
         const lastMsg = convMessages[convMessages.length - 1];
         return {
           ...r,
@@ -381,7 +543,11 @@ export default function App() {
           lastMessageAt: lastMsg?.createdAt
         };
       })
-      .filter(r => !matchItems.find(m => m.otherUser?.id === r.otherUser?.id));
+      .filter(r => !matchItems.find(m => {
+        const mOtherUserId = m.otherUser?._id || m.otherUser?.id || m.otherUser;
+        const rOtherUserId = r.otherUser?._id || r.otherUser?.id || r.otherUser;
+        return mOtherUserId === rOtherUserId;
+      }));
 
     return [...matchConvos, ...acceptedRequests].sort((a, b) => {
       const aTime = a.lastMessageAt || a.createdAt;
@@ -389,31 +555,42 @@ export default function App() {
       return new Date(bTime) - new Date(aTime);
     });
   }, [loggedInUser, matchItems, messageRequests, messages, users]);
+
   const pendingRequests = useMemo(() => {
     if (!loggedInUser) return [];
+    const loggedInId = loggedInUser._id || loggedInUser.id;
     return messageRequests
-      .filter(r => r.toUserId === loggedInUser.id)
-      .map(r => ({
+      .filter(r => {
+        const toUserId = r.toUserId?._id || r.toUserId?.id || r.toUserId;
+        return toUserId === loggedInId;
+      })
+      .map(r => {
+        const fromUserId = r.fromUserId?._id || r.fromUserId?.id || r.fromUserId;
+        return {
         ...r,
-        fromUser: users.find(u => u.id === r.fromUserId)
-      }));
+          fromUser: users.find(u => {
+            const userId = u._id || u.id;
+            return userId === fromUserId;
+          })
+        };
+      });
   }, [loggedInUser, messageRequests, users]);
 
   const inboxBadgeCount = inboxItems.length + matchItems.length;
   const pendingRequestCount = pendingRequests.filter(r => r.status === 'pending').length;
   const messagesBadgeCount = conversations.length + pendingRequestCount;
+
   const chatMessages = useMemo(() => {
     if (!chatUser || !loggedInUser) return [];
-    return messages.filter(m =>
-      (m.fromUserId === loggedInUser.id && m.toUserId === chatUser.id) ||
-      (m.fromUserId === chatUser.id && m.toUserId === loggedInUser.id)
-    ).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    const loggedInId = loggedInUser._id || loggedInUser.id;
+    const chatUserId = chatUser._id || chatUser.id;
+    return messages.filter(m => {
+      const fromUserId = m.fromUserId?._id || m.fromUserId?.id || m.fromUserId;
+      const toUserId = m.toUserId?._id || m.toUserId?.id || m.toUserId;
+      return (fromUserId === loggedInId && toUserId === chatUserId) ||
+             (fromUserId === chatUserId && toUserId === loggedInId);
+    }).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
   }, [chatUser, loggedInUser, messages]);
-
-  const handleSwitchAccount = (userId) => {
-    setLoggedInUserId(userId);
-    setCurrentIndex(0);
-  };
 
   const handleOpenChat = useCallback((user) => {
     setChatUser(user);
@@ -424,43 +601,58 @@ export default function App() {
     setChatUser(null);
     setActiveTab("messages");
   }, []);
+
   const handleSendMessage = useCallback((text) => {
     if (!chatUser || !loggedInUser) return;
+    const loggedInId = loggedInUser._id || loggedInUser.id;
+    const chatUserId = chatUser._id || chatUser.id;
     
-    const isMatched = matches.some(m => 
-      (m.user1Id === loggedInUser.id && m.user2Id === chatUser.id) ||
-      (m.user1Id === chatUser.id && m.user2Id === loggedInUser.id)
-    );
+    const isMatched = matches.some(m => {
+      const user1Id = m.user1Id?._id || m.user1Id?.id || m.user1Id;
+      const user2Id = m.user2Id?._id || m.user2Id?.id || m.user2Id;
+      return (user1Id === loggedInId && user2Id === chatUserId) ||
+             (user1Id === chatUserId && user2Id === loggedInId);
+    });
     
-    const hasAcceptedRequest = messageRequests.some(r =>
-      ((r.fromUserId === loggedInUser.id && r.toUserId === chatUser.id) ||
-       (r.fromUserId === chatUser.id && r.toUserId === loggedInUser.id)) &&
-      r.status === 'accepted'
-    );
+    const hasAcceptedRequest = messageRequests.some(r => {
+      const fromUserId = r.fromUserId?._id || r.fromUserId?.id || r.fromUserId;
+      const toUserId = r.toUserId?._id || r.toUserId?.id || r.toUserId;
+      return ((fromUserId === loggedInId && toUserId === chatUserId) ||
+              (fromUserId === chatUserId && toUserId === loggedInId)) &&
+             r.status === 'accepted';
+    });
     
     if (!isMatched && !hasAcceptedRequest) return;
     
     const newMsg = {
       id: `msg-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      fromUserId: loggedInUser.id,
-      toUserId: chatUser.id,
+      fromUserId: loggedInId,
+      toUserId: chatUserId,
       text,
       createdAt: new Date().toISOString()
     };
     setMessages(prev => [...prev, newMsg]);
   }, [chatUser, loggedInUser, matches, messageRequests]);
+
   const handleSendMessageRequest = useCallback((toUser, adjective) => {
     if (!loggedInUser) return;
+    const loggedInId = loggedInUser._id || loggedInUser.id;
+    const toUserId = toUser._id || toUser.id;
     const newRequest = {
       id: `req-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      fromUserId: loggedInUser.id,
-      toUserId: toUser.id,
+      fromUserId: loggedInId,
+      toUserId: toUserId,
       adjective,
       status: 'pending',
       createdAt: new Date().toISOString()
     };
     setMessageRequests(prev => {
-      if (prev.find(r => r.fromUserId === loggedInUser.id && r.toUserId === toUser.id)) {
+      const fromUserId = prev.find(r => {
+        const rFromUserId = r.fromUserId?._id || r.fromUserId?.id || r.fromUserId;
+        const rToUserId = r.toUserId?._id || r.toUserId?.id || r.toUserId;
+        return rFromUserId === loggedInId && rToUserId === toUserId;
+      });
+      if (fromUserId) {
         return prev;
       }
       return [newRequest, ...prev];
@@ -478,6 +670,7 @@ export default function App() {
       prev.map(r => r.id === requestId ? { ...r, status: 'declined' } : r)
     );
   }, []);
+
   if (!isLoaded) {
     return (
       <div className="app-shell">
@@ -514,7 +707,43 @@ export default function App() {
   }
 
   // Make sure we have a logged in user
-  if (!loggedInUser) {
+  // If we have loggedInUserId but not loggedInUser, try to get user from localStorage
+  if (!loggedInUser && loggedInUserId) {
+    const authUser = localStorage.getItem('citadel_auth_user');
+    if (authUser) {
+      try {
+        const parsed = JSON.parse(authUser);
+        const tempUser = {
+          id: parsed._id || parsed.id,
+          _id: parsed._id || parsed.id,
+          name: parsed.name,
+          gender: parsed.gender,
+          college: parsed.college,
+          year: parsed.year,
+          age: parsed.age,
+          skills: parsed.skills || [],
+          imageUrl: parsed.imageUrl || '',
+          isPremium: parsed.isPremium || false,
+          email: parsed.email,
+          phone: parsed.phone
+        };
+        // Add to users array if not already there
+        setUsers(prev => {
+          const exists = prev.find(u => (u.id === tempUser.id || u._id === tempUser.id));
+          if (!exists) {
+            return [tempUser, ...prev];
+          }
+          return prev;
+        });
+        // Continue rendering - the user will be available on next render
+      } catch (e) {
+        console.error('Error parsing auth user:', e);
+      }
+    }
+  }
+
+  // Only show loading if we truly don't have a user ID
+  if (!loggedInUserId) {
     return (
       <div className="app-shell">
         <div className="empty-state">
@@ -580,18 +809,6 @@ export default function App() {
           </svg>
           <span className="nav-label">Profile</span>
         </button>
-        <button
-          className={`nav-tab ${activeTab === "accounts" ? "active" : ""}`.trim()}
-          onClick={() => setActiveTab("accounts")}
-        >
-          <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-            <circle cx="9" cy="7" r="4"/>
-            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-          </svg>
-          <span className="nav-label">Switch</span>
-        </button>
       </nav>
       )}
 
@@ -656,13 +873,6 @@ export default function App() {
               user={loggedInUser}
               onUpdate={handleProfileUpdate}
               onLogout={handleLogout}
-            />
-          )}
-          {activeTab === "accounts" && (
-            <AccountSwitcherScreen
-              currentUserId={loggedInUser.id}
-              onSwitch={handleSwitchAccount}
-              users={users}
             />
           )}
         </div>

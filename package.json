@@ -7,8 +7,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "server": "node server/index.js",
-    "server:dev": "nodemon server/index.js",
-    "seed": "node server/seed.js"
+    "server:dev": "nodemon server/index.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

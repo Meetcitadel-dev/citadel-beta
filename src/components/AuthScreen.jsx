@@ -7,6 +7,7 @@ export default function AuthScreen({ onAuthSuccess }) {
   const [step, setStep] = useState("email"); // 'email', 'otp', 'signup'
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
+  const [receivedOtp, setReceivedOtp] = useState(""); // Store OTP from response
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isNewUser, setIsNewUser] = useState(false);
@@ -42,9 +43,20 @@ export default function AuthScreen({ onAuthSuccess }) {
       const response = await authAPI.requestOTP(email.trim().toLowerCase(), null);
       console.log('✅ OTP Response:', response);
       
+      // Store OTP if returned in response (for demo/testing)
       if (response.otp) {
-        alert(`Development Mode: Your OTP is ${response.otp}`);
+        setReceivedOtp(response.otp);
+        console.log('🔑 Demo OTP:', response.otp);
       }
+      
+      // Check if user exists - if response indicates user exists, switch to login mode
+      if (response.userExists && mode === "signup") {
+        setError("An account with this email already exists. Please login instead.");
+        setMode("login");
+        setIsLoading(false);
+        return;
+      }
+      
       const universityName = extractUniversityFromEmail(email);
       if (universityName && !signupData.college) {
         setSignupData(prev => ({ ...prev, college: universityName }));
@@ -61,10 +73,15 @@ export default function AuthScreen({ onAuthSuccess }) {
           setError("No account found with this email. Please sign up first.");
         } else {
           setError("Server error: API endpoint not found. Please check the console for details.");
-        }
+      }
       } else if (err.message.includes("already exists")) {
-        setError("Account already exists with this email. Please login instead.");
-      } else {
+        if (mode === "signup") {
+          setError("An account with this email already exists. Please login instead.");
+          setMode("login");
+        } else {
+          setError("Account already exists with this email. Please login instead.");
+        }
+    } else {
         setError(err.message || "Failed to send OTP. Please try again.");
       }
     } finally {
@@ -88,6 +105,7 @@ export default function AuthScreen({ onAuthSuccess }) {
       if (data.isNewUser || isNewUser) {
         setStep("signup");
       } else {
+        // Existing user logging in - pass all user data
         onAuthSuccess(data.user, false);
       }
     } catch (err) {
@@ -168,10 +186,9 @@ export default function AuthScreen({ onAuthSuccess }) {
     <div className="auth-screen">
       <div className="auth-container">
         <div className="auth-header">
-          <img src="/logo.svg" alt="Citadel" className="auth-logo-img" />
           <h1 className="auth-title">Citadel</h1>
           <p className="auth-subtitle">
-            {step === "email" && (mode === "login" ? "Welcome back! Enter your email" : "Enter your email to get started")}
+            {step === "email" && (mode === "login" ? "Welcome back! Enter your email" : "Enter university email ID to get started")}
             {step === "otp" && "Enter the 6-digit OTP sent to your email"}
             {step === "signup" && "Complete your profile"}
           </p>
@@ -230,6 +247,26 @@ export default function AuthScreen({ onAuthSuccess }) {
         {/* OTP Verification Step */}
         {step === "otp" && (
           <form className="auth-form" onSubmit={handleOtpSubmit}>
+            {receivedOtp && (
+              <div style={{
+                background: 'rgba(0, 255, 136, 0.1)',
+                border: '1px solid rgba(0, 255, 136, 0.3)',
+                borderRadius: '8px',
+                padding: '12px',
+                marginBottom: '20px',
+                textAlign: 'center'
+              }}>
+                <div style={{ color: '#00ff88', fontSize: '12px', marginBottom: '4px', fontWeight: '600' }}>
+                  🔑 DEMO MODE - Your OTP:
+                </div>
+                <div style={{ color: '#fff', fontSize: '24px', letterSpacing: '4px', fontFamily: 'monospace', fontWeight: 'bold' }}>
+                  {receivedOtp}
+                </div>
+                <div style={{ color: '#999', fontSize: '11px', marginTop: '4px' }}>
+                  (Check your email inbox for the actual code)
+                </div>
+              </div>
+            )}
             <div className="auth-field">
               <label className="auth-label">Enter OTP</label>
               <input
@@ -259,6 +296,7 @@ export default function AuthScreen({ onAuthSuccess }) {
               onClick={() => {
                 setStep("email");
                 setOtp("");
+                setReceivedOtp("");
                 setError("");
               }}
               disabled={isLoading}

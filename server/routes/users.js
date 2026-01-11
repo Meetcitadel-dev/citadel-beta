@@ -43,19 +43,37 @@ router.put('/:id', authenticate, async (req, res, next) => {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    const { name, college, year, age, skills, imageUrl } = req.body;
+    const { name, gender, college, year, age, skills, imageUrl } = req.body;
     
     const user = await User.findByIdAndUpdate(
       req.params.id,
-      { name, college, year, age, skills, imageUrl },
+      { name, gender, college, year, age, skills, imageUrl },
       { new: true, runValidators: true }
-    ).select('name gender college year age skills imageUrl isPremium');
+    ).select('name gender college year age skills imageUrl isPremium email phone _id');
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.json({ user });
+    // Return user with all fields in consistent format
+    res.json({ 
+      user: {
+        id: user._id,
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        gender: user.gender,
+        age: user.age,
+        college: user.college,
+        year: user.year,
+        skills: user.skills || [],
+        imageUrl: user.imageUrl || '',
+        isPremium: user.isPremium,
+      }
+    });
+    
+    console.log(`✅ Profile updated for user ${user._id}, imageUrl length: ${user.imageUrl ? user.imageUrl.length : 0}`);
   } catch (error) {
     next(error);
   }

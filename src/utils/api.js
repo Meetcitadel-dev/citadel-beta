@@ -98,8 +98,8 @@ export const authAPI = {
       body: JSON.stringify({ email, phone, otp }),
     });
     if (data.token && data.user) {
-      setToken(data.token);
-      setCurrentUser(data.user);
+    setToken(data.token);
+    setCurrentUser(data.user);
     }
     return data;
   },
@@ -146,15 +146,6 @@ export const authAPI = {
   logout: () => {
     setToken(null);
     setCurrentUser(null);
-  },
-
-  bypass: async () => {
-    const data = await apiRequest('/auth/bypass', {
-      method: 'POST',
-    });
-    setToken(data.token);
-    setCurrentUser(data.user);
-    return data;
   },
 };
 
