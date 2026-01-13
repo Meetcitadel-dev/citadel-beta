@@ -406,7 +406,22 @@ export const messageRequestsAPI = {
 // Test backend connectivity
 export const testBackendConnection = async () => {
   const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? '/api' : '/api');
-  const testUrl = `${baseUrl}/health`;
+  
+  // Construct health check URL properly
+  let testUrl;
+  if (baseUrl.startsWith('http')) {
+    // Full URL (production) - ensure /api/health
+    if (baseUrl.endsWith('/api')) {
+      testUrl = `${baseUrl}/health`;
+    } else if (baseUrl.endsWith('/')) {
+      testUrl = `${baseUrl}api/health`;
+    } else {
+      testUrl = `${baseUrl}/api/health`;
+    }
+  } else {
+    // Relative URL (development) - already includes /api
+    testUrl = `${baseUrl}/health`;
+  }
   
   console.log('🔍 Testing backend connection...');
   console.log('📍 Test URL:', testUrl);
