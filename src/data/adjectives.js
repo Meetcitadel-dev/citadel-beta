@@ -39,28 +39,49 @@ function pickRandom(arr, count) {
 }
 
 export function generateAdjectives(viewerGender, targetGender, mustInclude = null) {
-  // If we must include a specific adjective, we generate 3 random + that one
+  // Always return exactly 1 negative + 3 positive adjectives,
+  // even when we must include a specific adjective.
   if (mustInclude) {
-    // Filter out the mustInclude adjective from both pools
-    const availableNegatives = NEGATIVE_ADJECTIVES.filter(a => a !== mustInclude);
-    const availablePositives = POSITIVE_ADJECTIVES.filter(a => a !== mustInclude);
-    
-    // Pick 3 random adjectives (mix of negative and positive)
-    const negatives = pickRandom(availableNegatives, 1);
-    const positives = pickRandom(availablePositives, 2);
-    
-    const combined = [...negatives, ...positives, mustInclude];
-    
-    // Shuffle
+    const isPositive = POSITIVE_ADJECTIVES.includes(mustInclude);
+    const isNegative = NEGATIVE_ADJECTIVES.includes(mustInclude);
+
+    let negatives = [];
+    let positives = [];
+
+    if (isPositive) {
+      // mustInclude is positive:
+      // - pick 1 negative
+      // - pick 2 other positives (excluding mustInclude)
+      const availableNegatives = NEGATIVE_ADJECTIVES;
+      const availablePositives = POSITIVE_ADJECTIVES.filter(a => a !== mustInclude);
+
+      negatives = pickRandom(availableNegatives, 1);
+      positives = pickRandom(availablePositives, 2);
+      positives.push(mustInclude);
+    } else if (isNegative) {
+      // mustInclude is negative:
+      // - use mustInclude as the single negative
+      // - pick 3 positives
+      negatives = [mustInclude];
+      positives = pickRandom(POSITIVE_ADJECTIVES, 3);
+    } else {
+      // Fallback: treat like no mustInclude if it's not in either list
+      negatives = pickRandom(NEGATIVE_ADJECTIVES, 1);
+      positives = pickRandom(POSITIVE_ADJECTIVES, 3);
+    }
+
+    const combined = [...negatives, ...positives];
+
+    // Shuffle so order is random
     for (let i = combined.length - 1; i > 0; i -= 1) {
       const j = Math.floor(Math.random() * (i + 1));
       [combined[i], combined[j]] = [combined[j], combined[i]];
     }
-    
+
     return combined;
   }
   
-  // Always return 1 negative + 3 positive adjectives.
+  // Default: 1 negative + 3 positive adjectives.
   const negatives = pickRandom(NEGATIVE_ADJECTIVES, 1);
   const positives = pickRandom(POSITIVE_ADJECTIVES, 3);
 

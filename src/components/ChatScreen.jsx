@@ -70,15 +70,20 @@ export default function ChatScreen({
             </div>
           </div>
         ) : (
-          messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`chat-bubble ${msg.fromUserId === currentUserId ? "sent" : "received"}`}
-            >
-              <div className="chat-bubble-text">{msg.text}</div>
-              <div className="chat-bubble-time">{formatTime(msg.createdAt)}</div>
-            </div>
-          ))
+          messages.map((msg) => {
+            const fromUserId =
+              (msg.fromUserId && (msg.fromUserId._id || msg.fromUserId.id)) || msg.fromUserId;
+            const isSentByCurrentUser = String(fromUserId) === String(currentUserId);
+            return (
+              <div
+                key={msg._id || msg.id}
+                className={`chat-bubble ${isSentByCurrentUser ? "sent" : "received"}`}
+              >
+                <div className="chat-bubble-text">{msg.text}</div>
+                <div className="chat-bubble-time">{formatTime(msg.createdAt)}</div>
+              </div>
+            );
+          })
         )}
         <div ref={messagesEndRef} />
       </div>

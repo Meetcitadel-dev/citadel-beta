@@ -79,10 +79,7 @@ export default function MessagesScreen({
                   key={conv.id}
                   className="message-item"
                   onClick={() => {
-                    if (!isPremium) {
-                      onOpenPayment?.();
-                      return;
-                    }
+                    // Always allow opening to view received messages
                     onOpenChat(conv.otherUser);
                   }}
                 >

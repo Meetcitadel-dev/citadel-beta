@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const MessageRequest = require('../models/MessageRequest');
+const Match = require('../models/Match');
+const User = require('../models/User');
 const { authenticate } = require('../middleware/auth');
 
 // Get all message requests for current user
@@ -64,6 +66,15 @@ router.post('/', authenticate, async (req, res, next) => {
       return res.status(400).json({ error: 'toUserId and adjective are required' });
     }
 
+    // Only premium users can send message requests
+    const sender = await User.findById(req.userId).select('isPremium');
+    if (!sender) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    if (!sender.isPremium) {
+      return res.status(403).json({ error: 'Only premium users can send message requests.' });
+    }
+
     // Check if request already exists
     const existing = await MessageRequest.findOne({
       fromUserId: req.userId,
@@ -114,11 +125,44 @@ router.patch('/:id', authenticate, async (req, res, next) => {
     request.status = status;
     await request.save();
 
+    let match = null;
+
+    // If accepted, create or reuse a Match so this moves into "matches"
+    if (status === 'accepted') {
+      const { fromUserId, toUserId, adjective } = request;
+      match = await Match.findOne({
+        $or: [
+          { user1Id: fromUserId, user2Id: toUserId },
+          { user1Id: toUserId, user2Id: fromUserId },
+        ],
+      });
+
+      if (!match) {
+        match = new Match({
+          user1Id: fromUserId,
+          user2Id: toUserId,
+          adjective,
+        });
+        await match.save();
+      }
+    }
+
     const populatedRequest = await MessageRequest.findById(request._id)
       .populate('fromUserId', 'name imageUrl')
       .populate('toUserId', 'name imageUrl');
 
-    res.json({ request: populatedRequest });
+    res.json({
+      request: populatedRequest,
+      match: match
+        ? {
+            id: match._id,
+            user1Id: match.user1Id,
+            user2Id: match.user2Id,
+            adjective: match.adjective,
+            createdAt: match.createdAt,
+          }
+        : null,
+    });
   } catch (error) {
     next(error);
   }

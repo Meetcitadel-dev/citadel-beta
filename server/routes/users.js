@@ -7,7 +7,7 @@ const { authenticate } = require('../middleware/auth');
 router.get('/', authenticate, async (req, res, next) => {
   try {
     const users = await User.find({ _id: { $ne: req.userId } })
-      .select('name gender college year age skills imageUrl isPremium')
+      .select('name gender college year age skills imageUrl note isPremium')
       .sort({ createdAt: -1 });
     
     res.json({ users });
@@ -20,7 +20,7 @@ router.get('/', authenticate, async (req, res, next) => {
 router.get('/:id', authenticate, async (req, res, next) => {
   try {
     const user = await User.findById(req.params.id)
-      .select('name gender college year age skills imageUrl isPremium');
+      .select('name gender college year age skills imageUrl note isPremium');
     
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -43,13 +43,24 @@ router.put('/:id', authenticate, async (req, res, next) => {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    const { name, gender, college, year, age, skills, imageUrl } = req.body;
+    const { name, gender, college, year, age, skills, imageUrl, note } = req.body;
+    
+    const updateObj = {
+      name,
+      gender,
+      college,
+      year,
+      age,
+      skills,
+      imageUrl: imageUrl || '',
+      note: note || ''
+    };
     
     const user = await User.findByIdAndUpdate(
       req.params.id,
-      { name, gender, college, year, age, skills, imageUrl },
+      updateObj,
       { new: true, runValidators: true }
-    ).select('name gender college year age skills imageUrl isPremium email phone _id');
+    ).select('name gender college year age skills imageUrl note isPremium email phone _id');
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -69,11 +80,16 @@ router.put('/:id', authenticate, async (req, res, next) => {
         year: user.year,
         skills: user.skills || [],
         imageUrl: user.imageUrl || '',
+        note: user.note || '',
         isPremium: user.isPremium,
       }
     });
     
-    console.log(`✅ Profile updated for user ${user._id}, imageUrl length: ${user.imageUrl ? user.imageUrl.length : 0}`);
+    console.log(`✅ Profile updated for user ${user._id}:`, {
+      imageUrlLength: user.imageUrl ? user.imageUrl.length : 0,
+      note: user.note || '(empty)',
+      noteLength: user.note ? user.note.length : 0
+    });
   } catch (error) {
     next(error);
   }

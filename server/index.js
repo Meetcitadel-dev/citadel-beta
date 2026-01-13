@@ -15,6 +15,7 @@ app.use(cors({
   credentials: true
 }));
 
+// JSON body parser (but don't parse multipart/form-data)
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -33,13 +34,18 @@ mongoose.connect(MONGODB_URI, {
   console.log('💡 Make sure MongoDB is running or set MONGODB_URI environment variable');
 });
 
+// Serve uploaded images statically
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
+app.use('/api/upload', require('./routes/upload'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/matches', require('./routes/matches'));
 app.use('/api/messages', require('./routes/messages'));
 app.use('/api/message-requests', require('./routes/messageRequests'));
+app.use('/api/analytics', require('./routes/analytics'));
 
 // Health check
 app.get('/api/health', (req, res) => {

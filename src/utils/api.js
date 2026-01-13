@@ -149,6 +149,79 @@ export const authAPI = {
   },
 };
 
+// Clear all cached data from localStorage
+export const clearCache = () => {
+  // Clear auth data
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('auth_user');
+  localStorage.removeItem('citadel_auth_user');
+  localStorage.removeItem('citadel_is_premium');
+  
+  // Clear app data
+  localStorage.removeItem('citadel_users');
+  localStorage.removeItem('citadel_notifications');
+  localStorage.removeItem('citadel_matches');
+  localStorage.removeItem('citadel_messages');
+  localStorage.removeItem('citadel_message_requests');
+  localStorage.removeItem('citadel_current_user_id');
+  
+  console.log('✅ All cached data cleared');
+};
+
+export const uploadAPI = {
+  uploadProfileImage: async (file) => {
+    const token = getToken();
+    if (!token) {
+      throw new Error('Authentication required. Please login first.');
+    }
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    console.log('📤 Uploading image:', {
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type,
+      endpoint: `${API_BASE_URL}/upload/profile-image`
+    });
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/upload/profile-image`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          // Don't set Content-Type header - browser will set it with boundary for FormData
+        },
+        body: formData,
+      });
+
+      console.log('📡 Upload response:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ 
+          error: `Upload failed: ${response.status} ${response.statusText}` 
+        }));
+        console.error('❌ Upload error response:', errorData);
+        throw new Error(errorData.error || `Upload failed: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Upload success:', result);
+      return result;
+    } catch (error) {
+      console.error('❌ Upload fetch error:', error);
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        throw new Error('Unable to connect to server. Please make sure the backend server is running.');
+      }
+      throw error;
+    }
+  },
+};
+
 export const usersAPI = {
   getAll: async () => {
     const data = await apiRequest('/users');

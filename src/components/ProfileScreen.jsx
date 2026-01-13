@@ -1,31 +1,31 @@
 import React, { useState, useRef, useEffect } from "react";
+import { uploadAPI } from "../utils/api.js";
 
 export default function ProfileScreen({ user, onUpdate, onLogout }) {
   const [form, setForm] = useState({
     name: user.name ?? "",
-    gender: user.gender ?? "",
-    age: user.age ?? "",
     college: user.college ?? "",
     year: user.year ?? "",
     skills: (user.skills ?? []).join(", "),
-    imageUrl: user.imageUrl ?? ""
+    imageUrl: user.imageUrl ?? "",
+    note: user.note ?? ""
   });
   const [saved, setSaved] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
 
   // Update form when user changes (e.g., switching accounts)
   useEffect(() => {
     setForm({
       name: user.name ?? "",
-      gender: user.gender ?? "",
-      age: user.age ?? "",
       college: user.college ?? "",
       year: user.year ?? "",
       skills: (user.skills ?? []).join(", "),
-      imageUrl: user.imageUrl ?? ""
+      imageUrl: user.imageUrl ?? "",
+      note: user.note ?? ""
     });
     setSaved(false);
-  }, [user.id]);
+  }, [user.id, user.imageUrl, user.note]);
 
   const handleChange = (field) => (event) => {
     let value = event.target.value;
@@ -38,50 +38,56 @@ export default function ProfileScreen({ user, onUpdate, onLogout }) {
       }
     }
 
+    // For note, enforce max 40 characters
+    if (field === "note") {
+      value = value.slice(0, 40);
+    }
+
     setForm((prev) => ({ ...prev, [field]: value }));
     setSaved(false);
   };
 
-  const handleImageUpload = (event) => {
+  const handleImageUpload = async (event) => {
     const file = event.target.files?.[0];
-    if (file) {
-      // Validate file size (max 5MB)
-      const maxSize = 5 * 1024 * 1024; // 5MB in bytes
-      if (file.size > maxSize) {
-        alert('Image size is too large. Please choose an image smaller than 5MB.');
-        // Reset file input
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
-        return;
-      }
+    if (!file) return;
 
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        alert('Please select a valid image file.');
-        // Reset file input
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
-        return;
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    if (file.size > maxSize) {
+      alert('Image size is too large. Please choose an image smaller than 5MB.');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
       }
+      return;
+    }
 
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        // Store the base64 data URL
-        const dataUrl = e.target.result;
-        console.log('📷 Image uploaded, size:', dataUrl.length, 'characters');
-        setForm((prev) => ({ ...prev, imageUrl: dataUrl }));
-        setSaved(false);
-      };
-      reader.onerror = () => {
-        alert('Error reading image file. Please try again.');
-        // Reset file input
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
-      };
-      reader.readAsDataURL(file);
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select a valid image file.');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+
+    // Upload file to server
+    setUploading(true);
+    try {
+      const result = await uploadAPI.uploadProfileImage(file);
+      // Construct full URL - in development, use localhost:3001, in production use relative path
+      const baseUrl = import.meta.env.DEV ? 'http://localhost:3001' : '';
+      const imageUrl = baseUrl + result.imageUrl;
+      console.log('✅ Image uploaded successfully:', imageUrl);
+      setForm((prev) => ({ ...prev, imageUrl: imageUrl }));
+      setSaved(false);
+    } catch (error) {
+      console.error('❌ Image upload error:', error);
+      alert(error.message || 'Failed to upload image. Please try again.');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -94,25 +100,17 @@ export default function ProfileScreen({ user, onUpdate, onLogout }) {
       .slice(0, 3);
     const next = {
       ...user,
-      name: form.name.trim() || user.name,
-      gender: form.gender || user.gender,
-      age: form.age ? parseInt(form.age) : user.age,
-      college: form.college.trim() || user.college,
-      year: form.year || user.year,
+      name: form.name.trim(),
+      college: form.college.trim(),
+      year: form.year,
       skills: skillList,
-      // Always include imageUrl - use form value if set, otherwise keep existing
-      imageUrl: form.imageUrl || user.imageUrl || ''
+      imageUrl: form.imageUrl || '',
+      note: (form.note || '').trim()
     };
     
-    // Ensure we have the user ID
     if (!next.id && !next._id) {
       console.error('Cannot update profile: missing user ID');
       return;
-    }
-    
-    // Log image info for debugging
-    if (next.imageUrl) {
-      console.log('📷 Saving profile with image, length:', next.imageUrl.length, 'characters');
     }
     
     onUpdate?.(next);
@@ -121,7 +119,10 @@ export default function ProfileScreen({ user, onUpdate, onLogout }) {
   };
 
   return (
-    <div className="profile-edit-card profile-scrollable">
+    <div
+      className="profile-edit-card profile-scrollable"
+      style={{ margin: '10px', width: 'calc(100% - 20px)' }}
+    >
       <div className="profile-edit-header">
         <div className="profile-edit-avatar">
           {user.name?.[0]?.toUpperCase() ?? "U"}
@@ -145,52 +146,35 @@ export default function ProfileScreen({ user, onUpdate, onLogout }) {
           />
         </label>
 
-        <label className="field">
-          <span className="field-label">Gender</span>
-          <div className="gender-options">
-            <button
-              type="button"
-              className={`gender-btn ${form.gender === "male" ? "active" : ""}`}
-              onClick={() => {
-                setForm(prev => ({ ...prev, gender: "male" }));
-                setSaved(false);
-              }}
-            >
-              Male
-            </button>
-            <button
-              type="button"
-              className={`gender-btn ${form.gender === "female" ? "active" : ""}`}
-              onClick={() => {
-                setForm(prev => ({ ...prev, gender: "female" }));
-                setSaved(false);
-              }}
-            >
-              Female
-            </button>
-          </div>
-        </label>
-
-        <label className="field">
-          <span className="field-label">Age</span>
+        <div className="field">
+          <span className="field-label">Email</span>
           <input
-            type="number"
-            value={form.age}
-            onChange={handleChange("age")}
+            type="email"
+            value={user.email || ''}
+            readOnly
             className="field-input"
-            min="16"
-            max="100"
-            placeholder="Enter your age"
+            style={{ 
+              backgroundColor: '#1a1a1a', 
+              color: '#999', 
+              cursor: 'not-allowed',
+              opacity: 0.7
+            }}
           />
-        </label>
+        </div>
 
         <label className="field">
           <span className="field-label">College</span>
           <input
             type="text"
             value={form.college}
-            onChange={handleChange("college")}
+            readOnly
             className="field-input"
+            style={{ 
+              backgroundColor: '#1a1a1a', 
+              color: '#999', 
+              cursor: 'not-allowed',
+              opacity: 0.7
+            }}
           />
         </label>
 
@@ -198,8 +182,14 @@ export default function ProfileScreen({ user, onUpdate, onLogout }) {
           <span className="field-label">Year</span>
           <select
             value={form.year}
-            onChange={handleChange("year")}
+            disabled
             className="field-input field-select"
+            style={{ 
+              backgroundColor: '#1a1a1a', 
+              color: '#999', 
+              cursor: 'not-allowed',
+              opacity: 0.7
+            }}
           >
             <option value="">Select year</option>
             <option value="1st Year">1st Year</option>
@@ -223,8 +213,13 @@ export default function ProfileScreen({ user, onUpdate, onLogout }) {
 
         <div className="field">
           <span className="field-label">Profile image</span>
-          <div className="image-upload-area" onClick={() => fileInputRef.current?.click()}>
-            {form.imageUrl ? (
+          <div className="image-upload-area" onClick={() => !uploading && fileInputRef.current?.click()}>
+            {uploading ? (
+              <div className="upload-placeholder">
+                <span className="upload-icon">⏳</span>
+                <span className="upload-text">Uploading...</span>
+              </div>
+            ) : form.imageUrl ? (
               <img src={form.imageUrl} alt="Preview" className="image-preview" />
             ) : (
               <div className="upload-placeholder">
@@ -238,9 +233,25 @@ export default function ProfileScreen({ user, onUpdate, onLogout }) {
               accept="image/*"
               onChange={handleImageUpload}
               className="file-input-hidden"
+              disabled={uploading}
             />
           </div>
         </div>
+
+        <label className="field">
+          <span className="field-label">Note (max 40 characters)</span>
+          <input
+            type="text"
+            value={form.note}
+            onChange={handleChange("note")}
+            className="field-input"
+            placeholder="Write a short line about yourself..."
+            maxLength={40}
+          />
+          <p className="field-hint" style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>
+            {form.note.length}/40 characters
+          </p>
+        </label>
 
         <button type="submit" className={`primary-button ${saved ? 'saved' : ''}`}>
           {saved ? '✓ Saved!' : 'Save changes'}

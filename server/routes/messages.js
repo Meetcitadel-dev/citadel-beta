@@ -3,6 +3,7 @@ const router = express.Router();
 const Message = require('../models/Message');
 const Match = require('../models/Match');
 const MessageRequest = require('../models/MessageRequest');
+const User = require('../models/User');
 const { authenticate } = require('../middleware/auth');
 
 // Get messages for a conversation between two users
@@ -55,7 +56,7 @@ router.post('/', authenticate, async (req, res, next) => {
       return res.status(400).json({ error: 'toUserId and text are required' });
     }
 
-    // Verify users can message each other
+    // Verify users can message each other (matched or accepted request)
     const match = await Match.findOne({
       $or: [
         { user1Id: req.userId, user2Id: toUserId },
@@ -73,6 +74,26 @@ router.post('/', authenticate, async (req, res, next) => {
 
     if (!match && !acceptedRequest) {
       return res.status(403).json({ error: 'Cannot send message to this user' });
+    }
+
+    // Check if sender is premium or if they're replying to a message they received
+    const sender = await User.findById(req.userId).select('isPremium');
+    if (!sender) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Non-premium users can only reply (send messages if they've received messages in this conversation)
+    if (!sender.isPremium) {
+      const receivedMessages = await Message.findOne({
+        fromUserId: toUserId,
+        toUserId: req.userId,
+      });
+      
+      if (!receivedMessages) {
+        return res.status(403).json({ 
+          error: 'You need a premium account to start a conversation. You can reply to messages you\'ve received for free.' 
+        });
+      }
     }
 
     const message = new Message({

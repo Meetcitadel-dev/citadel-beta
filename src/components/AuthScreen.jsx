@@ -19,7 +19,8 @@ export default function AuthScreen({ onAuthSuccess }) {
     college: "",
     year: "",
     age: "",
-    skills: ""
+    skills: "",
+    note: ""
   });
 
   const handleEmailSubmit = async (e) => {
@@ -50,7 +51,7 @@ export default function AuthScreen({ onAuthSuccess }) {
       }
       
       // Check if user exists - if response indicates user exists, switch to login mode
-      if (response.userExists && mode === "signup") {
+      if (response.userExists === true && mode === "signup") {
         setError("An account with this email already exists. Please login instead.");
         setMode("login");
         setIsLoading(false);
@@ -154,14 +155,15 @@ export default function AuthScreen({ onAuthSuccess }) {
     try {
       const userData = {
         email: email.trim().toLowerCase(),
-      name: signupData.name.trim(),
-      gender: signupData.gender,
-      age: parseInt(signupData.age),
-      college: signupData.college.trim(),
-      year: signupData.year,
-      skills,
+        name: signupData.name.trim(),
+        gender: signupData.gender,
+        age: parseInt(signupData.age),
+        college: signupData.college.trim(),
+        year: signupData.year,
+        skills,
+        note: (signupData.note || '').trim(),
         imageUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`
-    };
+      };
     
       const data = await authAPI.register(userData);
       alert("Account created! Please check your email to verify your account.");
@@ -423,6 +425,23 @@ export default function AuthScreen({ onAuthSuccess }) {
               <p className="auth-hint">Comma separated</p>
             </div>
 
+            <div className="auth-field">
+              <label className="auth-label">Note (optional, max 40 characters)</label>
+              <input
+                type="text"
+                value={signupData.note}
+                onChange={(e) => {
+                  const value = e.target.value.slice(0, 40);
+                  setSignupData(prev => ({ ...prev, note: value }));
+                  setError("");
+                }}
+                placeholder="Write a short line about yourself..."
+                className="auth-input"
+                maxLength={40}
+              />
+              <p className="auth-hint">{signupData.note.length}/40 characters</p>
+            </div>
+
             <button 
               type="submit" 
               className="auth-btn primary"
@@ -436,7 +455,7 @@ export default function AuthScreen({ onAuthSuccess }) {
               onClick={() => {
                 setStep("email");
                 setOtp("");
-                setSignupData({ name: "", gender: "", college: "", year: "", age: "", skills: "" });
+                setSignupData({ name: "", gender: "", college: "", year: "", age: "", skills: "", note: "" });
                 setError("");
               }}
               disabled={isLoading}

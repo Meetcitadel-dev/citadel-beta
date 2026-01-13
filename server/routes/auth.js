@@ -8,24 +8,55 @@ const { logNewUserEmail } = require('../utils/userLogger');
 
 // Request OTP for login or signup
 router.post('/request-otp', async (req, res, next) => {
+  // Initialize userExists at the very top to ensure it's always defined
+  let userExists = false;
+  
   try {
-    const { email, phone } = req.body;
+    let { email, phone } = req.body;
+    
+    // Normalize email to lowercase (MongoDB schema has lowercase: true)
+    if (email) {
+      email = email.trim().toLowerCase();
+    }
+    if (phone) {
+      phone = phone.trim();
+    }
     
     if (!email && !phone) {
-      return res.status(400).json({ error: 'Email or phone is required' });
+      return res.status(400).json({ error: 'Email or phone is required', userExists: false });
     }
 
-    // Find existing user
-    let user = await User.findOne({ $or: [{ email }, { phone }] });
+    // Find existing user - use exact match, not $or with null values
+    let user = null;
+    if (email) {
+      user = await User.findOne({ email: email });
+    } else if (phone) {
+      user = await User.findOne({ phone: phone });
+    }
+    
+    // Check if user exists and is a complete user (not TEMP_USER)
+    // A complete user must have: name (not TEMP_USER), college (not TEMP), and gender (not 'other')
+    if (user && user.name && user.name !== 'TEMP_USER' && 
+        user.college && user.college !== 'TEMP' &&
+        user.gender && user.gender !== 'other') {
+      userExists = true;
+    }
     
     // Generate 6-digit OTP
     const otp = crypto.randomInt(100000, 999999).toString();
     const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     if (user) {
-      // Existing user - save OTP for login
+      // Existing user (complete or incomplete) - save OTP for login/signup
       user.otp = otp;
       user.otpExpires = otpExpires;
+      // Ensure email/phone matches what was requested (in case of TEMP_USER)
+      if (email && !user.email) {
+        user.email = email;
+      }
+      if (phone && !user.phone) {
+        user.phone = phone;
+      }
       // Skip validation when only updating OTP fields
       await user.save({ validateBeforeSave: false });
     } else {
@@ -47,6 +78,8 @@ router.post('/request-otp', async (req, res, next) => {
       });
       // Skip validation for temp user - we'll validate when updating with real data
       await user.save({ validateBeforeSave: false });
+      // Ensure userExists is false for new temp users
+      userExists = false;
     }
 
     // Send OTP via email if email exists
@@ -63,32 +96,43 @@ router.post('/request-otp', async (req, res, next) => {
         if (process.env.NODE_ENV === 'production') {
           return res.status(500).json({ 
             error: 'Failed to send OTP email. Please try again later.',
-            details: emailError.message 
+            details: emailError.message,
+            userExists: userExists
           });
         }
       }
     }
 
-    res.json({ 
+    // Explicitly construct response to ensure userExists is always included
+    const response = {
       message: 'OTP sent successfully',
-      // Always return OTP for demo/testing purposes
       otp: otp,
-      userExists: userExists // Indicate if user already exists
-    });
+      userExists: Boolean(userExists)
+    };
+    res.json(response);
   } catch (error) {
     console.error('Request OTP error:', error);
     if (error.name === 'ValidationError') {
       const errors = Object.values(error.errors).map(e => e.message);
-      return res.status(400).json({ error: errors.join(', ') });
+      return res.status(400).json({ error: errors.join(', '), userExists: false });
     }
-    next(error);
+    // Ensure userExists is always included in error responses
+    return res.status(500).json({ error: 'Internal server error', userExists: false });
   }
 });
 
 // Verify OTP and login (or proceed to signup)
 router.post('/verify-otp', async (req, res, next) => {
   try {
-    const { email, phone, otp } = req.body;
+    let { email, phone, otp } = req.body;
+    
+    // Normalize email to lowercase
+    if (email) {
+      email = email.trim().toLowerCase();
+    }
+    if (phone) {
+      phone = phone.trim();
+    }
     
     if (!otp) {
       return res.status(400).json({ error: 'OTP is required' });
@@ -98,7 +142,14 @@ router.post('/verify-otp', async (req, res, next) => {
       return res.status(400).json({ error: 'Email or phone is required' });
     }
 
-    const user = await User.findOne({ $or: [{ email }, { phone }] });
+    // Find user by exact email or phone match (not $or with null values)
+    let user = null;
+    if (email) {
+      user = await User.findOne({ email: email });
+    } else if (phone) {
+      user = await User.findOne({ phone: phone });
+    }
+
     if (!user) {
       return res.status(404).json({ error: 'User not found. Please request OTP first.' });
     }
@@ -130,27 +181,27 @@ router.post('/verify-otp', async (req, res, next) => {
       });
     } else {
       // For login flow, generate JWT token and return user data
-      const token = generateToken(user._id.toString());
-      
-      res.json({
-        token,
-        user: {
-          id: user._id,
+    const token = generateToken(user._id.toString());
+    
+    res.json({
+      token,
+      user: {
+        id: user._id,
           _id: user._id,
-          name: user.name,
-          email: user.email,
-          phone: user.phone,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
           gender: user.gender,
           age: user.age,
           college: user.college,
           year: user.year,
           skills: user.skills || [],
           imageUrl: user.imageUrl || '',
-          isPremium: user.isPremium,
+        isPremium: user.isPremium,
           emailVerified: user.emailVerified,
-        },
+      },
         isNewUser: false,
-      });
+    });
     }
   } catch (error) {
     console.error('Verify OTP error:', error);
@@ -165,14 +216,28 @@ router.post('/verify-otp', async (req, res, next) => {
 // Register new user (after OTP verification)
 router.post('/register', async (req, res, next) => {
   try {
-    const { name, gender, college, year, age, skills, imageUrl, phone, email } = req.body;
+    let { name, gender, college, year, age, skills, imageUrl, phone, email, note } = req.body;
+
+    // Normalize email to lowercase
+    if (email) {
+      email = email.trim().toLowerCase();
+    }
+    if (phone) {
+      phone = phone.trim();
+    }
 
     if (!email) {
       return res.status(400).json({ error: 'Email is required for registration' });
     }
 
-    // Find existing user (should be the temporary one created during OTP request)
-    let user = await User.findOne({ $or: [{ phone }, { email }] });
+    // Find existing user by exact email match first (most important)
+    // Then check phone if email doesn't match
+    let user = await User.findOne({ email: email });
+    
+    // If no user found by email, check by phone (but only if phone is provided)
+    if (!user && phone) {
+      user = await User.findOne({ phone: phone });
+    }
     
     // If user exists and is not a temporary user, check if they're trying to register again
     if (user && user.name !== 'TEMP_USER') {
@@ -188,11 +253,19 @@ router.post('/register', async (req, res, next) => {
       if (isCompleteUser) {
         // This is a fully registered user - they should login instead
         return res.status(400).json({ 
-          error: 'User already exists with this email or phone. Please login instead.' 
+          error: 'User already exists with this email. Please login instead.' 
         });
       }
       // If user exists but is incomplete (maybe from a failed registration), allow registration to complete it
       // We'll update this user below
+    }
+    
+    // IMPORTANT: If user exists but has a different email, this is a conflict
+    // This prevents registering nisarg.argg@gmail.com when nisargofficial22@gmail.com exists
+    if (user && user.email && user.email !== email) {
+      return res.status(400).json({ 
+        error: 'Email mismatch. Please use the correct email address.' 
+      });
     }
 
     // Generate email verification token
@@ -201,6 +274,11 @@ router.post('/register', async (req, res, next) => {
 
     if (user) {
       // Update existing user (either TEMP_USER or incomplete user) with full registration data
+      // Ensure email matches exactly what was requested
+      user.email = email; // Always set to the exact email from request
+      if (phone) {
+        user.phone = phone;
+      }
       user.name = name;
       user.gender = gender;
       user.college = college;
@@ -208,31 +286,30 @@ router.post('/register', async (req, res, next) => {
       user.age = age;
       user.skills = skills || [];
       user.imageUrl = imageUrl || '';
+      user.note = (note || '').trim();
       user.emailVerificationToken = verificationToken;
       user.emailVerificationExpires = verificationExpires;
       user.emailVerified = false;
-      // Update email/phone if provided
-      if (email) user.email = email;
-      if (phone) user.phone = phone;
       // Validate before saving the updated user data
       await user.save({ validateBeforeSave: true });
     } else {
       // Create new user (fallback if no user was found)
       user = new User({
-        name,
-        gender,
-        college,
-        year,
-        age,
-        skills: skills || [],
-        imageUrl: imageUrl || '',
-        phone,
-        email,
+      name,
+      gender,
+      college,
+      year,
+      age,
+      skills: skills || [],
+      imageUrl: imageUrl || '',
+        note: (note || '').trim(),
+        phone: phone || undefined,
+        email: email,
         emailVerificationToken: verificationToken,
         emailVerificationExpires: verificationExpires,
         emailVerified: false,
       });
-      await user.save();
+    await user.save();
     }
 
     // Send verification email
@@ -265,6 +342,7 @@ router.post('/register', async (req, res, next) => {
         year: user.year,
         skills: user.skills || [],
         imageUrl: user.imageUrl || '',
+        note: user.note || '',
         isPremium: user.isPremium,
         emailVerified: false,
       },
@@ -379,13 +457,27 @@ router.get('/me', authenticate, async (req, res, next) => {
 // Legacy login endpoint (for backward compatibility)
 router.post('/login', async (req, res, next) => {
   try {
-    const { phone, email } = req.body;
+    let { phone, email } = req.body;
+    
+    // Normalize email to lowercase
+    if (email) {
+      email = email.trim().toLowerCase();
+    }
+    if (phone) {
+      phone = phone.trim();
+    }
     
     if (!phone && !email) {
       return res.status(400).json({ error: 'Phone or email is required' });
     }
 
-    let user = await User.findOne({ $or: [{ phone }, { email }] });
+    // Find user by exact match
+    let user = null;
+    if (email) {
+      user = await User.findOne({ email: email });
+    } else if (phone) {
+      user = await User.findOne({ phone: phone });
+    }
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });

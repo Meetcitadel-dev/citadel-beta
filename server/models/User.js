@@ -35,6 +35,12 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  note: {
+    type: String,
+    default: '',
+    maxlength: 40,
+    trim: true,
+  },
   phone: {
     type: String,
     unique: true,

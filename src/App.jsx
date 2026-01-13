@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { generateAdjectives } from "./data/adjectives.js";
 import db from "./data/db.js";
-import { authAPI, usersAPI, getToken, getCurrentUser } from "./utils/api.js";
+import { authAPI, usersAPI, notificationsAPI, matchesAPI, messagesAPI, messageRequestsAPI, getToken, getCurrentUser, clearCache } from "./utils/api.js";
 import AuthScreen from "./components/AuthScreen.jsx";
 import EmailVerificationScreen from "./components/EmailVerificationScreen.jsx";
 import DiscoverScreen from "./components/DiscoverScreen.jsx";
@@ -41,6 +41,7 @@ export default function App() {
         age: user.age,
         skills: user.skills || [],
         imageUrl: user.imageUrl || '',
+        note: user.note || '', // Include note field
         isPremium: user.isPremium || false,
         email: user.email,
         phone: user.phone
@@ -65,11 +66,40 @@ export default function App() {
     }
   }, []);
 
+  // Load notifications and matches from backend
+  const loadNotifications = useCallback(async () => {
+    try {
+      const backendNotifications = await notificationsAPI.getAll();
+      setNotifications(backendNotifications || []);
+    } catch (error) {
+      console.error('Failed to load notifications:', error);
+      setNotifications([]);
+    }
+  }, []);
+
+  const loadMatches = useCallback(async () => {
+    try {
+      const backendMatches = await matchesAPI.getAll();
+      setMatches(backendMatches || []);
+    } catch (error) {
+      console.error('Failed to load matches:', error);
+      setMatches([]);
+    }
+  }, []);
+
+  const loadMessageRequests = useCallback(async () => {
+    try {
+      const backendRequests = await messageRequestsAPI.getAll();
+      setMessageRequests(backendRequests || []);
+    } catch (error) {
+      console.error('Failed to load message requests:', error);
+      setMessageRequests([]);
+    }
+  }, []);
+
   // Initialize database and load data on mount
   useEffect(() => {
-    // Initialize localStorage for notifications, matches, messages, requests
-    setNotifications(db.notifications.getAll());
-    setMatches(db.matches.getAll());
+    // Initialize localStorage for messages, requests (legacy/local-only)
     setMessages(db.messages.getAll());
     setMessageRequests(db.messageRequests.getAll());
     
@@ -85,8 +115,13 @@ export default function App() {
           setLoggedInUserId(userId);
           setIsAuthenticated(true);
           setIsPremium(user.isPremium || false);
-          // Fetch users from backend
-          await loadUsers();
+          // Fetch users, notifications, matches, and message requests from backend
+          await Promise.all([
+            loadUsers(),
+            loadNotifications(),
+            loadMatches(),
+            loadMessageRequests()
+          ]);
         } catch (error) {
           console.error('Auth check failed:', error);
           authAPI.logout();
@@ -108,8 +143,13 @@ export default function App() {
                 setIsPremium(premiumParsed[userId] === true);
           }
         }
-            // Fetch users from backend
-            await loadUsers();
+            // Fetch users, notifications, matches, and message requests from backend
+            await Promise.all([
+              loadUsers(),
+              loadNotifications(),
+              loadMatches(),
+              loadMessageRequests()
+            ]);
       } catch (e) {
         localStorage.removeItem('citadel_auth_user');
           }
@@ -119,7 +159,7 @@ export default function App() {
     };
 
     checkAuth();
-  }, [loadUsers]);
+  }, [loadUsers, loadNotifications, loadMatches, loadMessageRequests]);
 
   const handleAuthSuccess = useCallback(async (user, isNewUser) => {
     const userId = user._id || user.id;
@@ -141,6 +181,7 @@ export default function App() {
       age: user.age,
       skills: user.skills || [],
       imageUrl: user.imageUrl || '',
+      note: user.note || '', // Include note field
       isPremium: user.isPremium || false,
       email: user.email,
       phone: user.phone
@@ -154,20 +195,29 @@ export default function App() {
       return [transformedUser, ...prev];
     });
 
-    // Reload users from backend after authentication (non-blocking)
-    loadUsers().catch(err => {
-      console.error('Failed to load users from backend:', err);
+    // Reload users, notifications, matches, and message requests from backend after authentication
+    Promise.all([
+      loadUsers(),
+      loadNotifications(),
+      loadMatches(),
+      loadMessageRequests()
+    ]).catch(err => {
+      console.error('Failed to load data from backend:', err);
       // Don't block the UI if this fails
     });
-  }, [loadUsers]);
+  }, [loadUsers, loadNotifications, loadMatches, loadMessageRequests]);
 
   const handleLogout = useCallback(() => {
     authAPI.logout();
-    localStorage.removeItem('citadel_auth_user');
-    localStorage.removeItem('citadel_is_premium');
+    clearCache(); // Clear all cached data
     setIsAuthenticated(false);
     setLoggedInUserId(null);
     setIsPremium(false);
+    setUsers([]);
+    setNotifications([]);
+    setMatches([]);
+    setMessages([]);
+    setMessageRequests([]);
   }, []);
 
   useEffect(() => {
@@ -194,7 +244,21 @@ export default function App() {
     setShowPaymentModal(true);
   }, []);
 
-  const handlePaymentSuccess = useCallback(() => {
+  const handlePaymentSuccess = useCallback(async () => {
+    if (!loggedInUserId) {
+      alert('Error: user not found. Please try logging in again.');
+      return;
+    }
+
+    // Update premium status in backend so server-side checks pass
+    try {
+      await usersAPI.updatePremium(loggedInUserId, true, null);
+    } catch (e) {
+      console.error('Failed to update premium status on server:', e);
+      // Continue anyway; frontend will still mark as premium
+    }
+
+    // Also persist premium status in localStorage (per-user map)
     let premiumUsers = {};
     try {
       const stored = localStorage.getItem('citadel_is_premium');
@@ -205,6 +269,7 @@ export default function App() {
         }
       }
     } catch (e) {}
+
     premiumUsers[loggedInUserId] = true;
     localStorage.setItem('citadel_is_premium', JSON.stringify(premiumUsers));
     setIsPremium(true);
@@ -255,24 +320,16 @@ export default function App() {
         return;
       }
 
-      // Prepare update data - ensure imageUrl is included
-      const updateData = {
+      const updated = await usersAPI.update(userId, {
         name: updatedUser.name,
         gender: updatedUser.gender,
         college: updatedUser.college,
         year: updatedUser.year,
         age: updatedUser.age,
         skills: updatedUser.skills,
-        imageUrl: updatedUser.imageUrl || '' // Always include imageUrl, even if empty
-      };
-      
-      console.log('📤 Sending profile update:', {
-        userId,
-        hasImage: !!updateData.imageUrl,
-        imageLength: updateData.imageUrl ? updateData.imageUrl.length : 0
+        imageUrl: updatedUser.imageUrl || '',
+        note: updatedUser.note || ''
       });
-      
-      const updated = await usersAPI.update(userId, updateData);
       
       // Update local state immediately - updated is already the user object
       setUsers(prev => prev.map(u => 
@@ -287,7 +344,7 @@ export default function App() {
           if (parsed._id === userId || parsed.id === userId) {
             const updatedAuthUser = { ...parsed, ...updated };
             localStorage.setItem('citadel_auth_user', JSON.stringify(updatedAuthUser));
-          }
+    }
         } catch (e) {
           console.error('Error updating localStorage:', e);
         }
@@ -389,44 +446,82 @@ export default function App() {
     });
   };
 
-  const vibesSentToday = useMemo(() => {
-    if (!loggedInUser) return 0;
-    const loggedInId = loggedInUser._id || loggedInUser.id;
-    const today = new Date().toDateString();
-    return notifications.filter(n => {
-      const fromUserId = n.fromUserId?._id || n.fromUserId?.id || n.fromUserId;
-      if (fromUserId !== loggedInId) return false;
-      const notificationDate = new Date(n.createdAt).toDateString();
-      return notificationDate === today;
-    }).length;
-  }, [notifications, loggedInUser]);
+  const [vibesSentToday, setVibesSentToday] = useState(0);
 
-  const handleAdjectiveSelect = (adjective) => {
-    if (!currentProfile || (!isPremium && vibesSentToday >= 10)) return;
+  // Load vibes sent today from backend
+  useEffect(() => {
+    if (isAuthenticated && loggedInUserId) {
+      notificationsAPI.getTodayCount()
+        .then(count => setVibesSentToday(count || 0))
+        .catch(err => {
+          console.error('Failed to load vibes count:', err);
+          setVibesSentToday(0);
+        });
+    }
+  }, [isAuthenticated, loggedInUserId]);
+
+  const handleAdjectiveSelect = async (adjective) => {
+    if (!currentProfile) return;
+
+    // Check if user has uploaded an image - MUST be first check
+    if (!loggedInUser) {
+      alert('Please log in to send vibes.');
+      return;
+    }
     
+    const hasImage = loggedInUser.imageUrl && 
+                    typeof loggedInUser.imageUrl === 'string' && 
+                    loggedInUser.imageUrl.trim() !== '';
+    
+    if (!hasImage) {
+      alert('Your profile isn\'t public yet. Upload a photo to send and receive vibes.');
+      return;
+    }
+
+    // Prevent sending more than one vibe to the same user
     const loggedInId = loggedInUser._id || loggedInUser.id;
     const currentProfileId = currentProfile._id || currentProfile.id;
-    
-    const entry = {
-      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      fromUserId: loggedInId,
-      toUserId: currentProfileId,
-      adjective,
-      createdAt: new Date().toISOString()
-    };
-    setNotifications((prev) => [entry, ...prev]);
-
-    if (adjectiveFromProfile && adjective === adjectiveFromProfile) {
-      const matchEntry = {
-        id: `match-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-        user1Id: loggedInId,
-        user2Id: currentProfileId,
-        adjective,
-        createdAt: new Date().toISOString()
-      };
-      setMatches((prev) => [matchEntry, ...prev]);
+    const alreadySent = notifications.some((n) => {
+      const fromUserId = n.fromUserId?._id || n.fromUserId?.id || n.fromUserId;
+      const toUserId = n.toUserId?._id || n.toUserId?.id || n.toUserId;
+      return fromUserId === loggedInId && toUserId === currentProfileId;
+    });
+    if (alreadySent) {
+      alert('You have already sent a vibe to this user.');
+      return;
     }
-    setCurrentIndex(0);
+
+    if (!isPremium && vibesSentToday >= 10) {
+      alert('You have reached your daily limit of 10 vibes. Get premium for unlimited vibes!');
+      return;
+    }
+    
+    try {
+      // Call backend API to send vibe
+      const result = await notificationsAPI.create(currentProfileId, adjective);
+      
+      // Update notifications with the response
+      if (result.notification) {
+        setNotifications((prev) => [result.notification, ...prev]);
+      }
+      
+      // If there's a match (both users sent same adjective), update matches
+      if (result.match) {
+        // Reload matches from backend to get the full match data
+        await loadMatches();
+        alert(`🎉 It's a match! You both chose "${adjective}"!`);
+      }
+      
+      // Update vibes sent today count
+      const newCount = await notificationsAPI.getTodayCount();
+      setVibesSentToday(newCount || 0);
+      
+      // Move to next profile
+      setCurrentIndex(0);
+    } catch (error) {
+      console.error('Failed to send vibe:', error);
+      alert(error.message || 'Failed to send vibe. Please try again.');
+    }
   };
 
   const inboxItems = useMemo(
@@ -494,25 +589,25 @@ export default function App() {
     if (!loggedInUser) return [];
     const loggedInId = loggedInUser._id || loggedInUser.id;
     
-    const matchConvos = matchItems
-      .map(m => {
-        const otherUserId = m.otherUser?._id || m.otherUser?.id || m.otherUser;
-        const convMessages = messages.filter(msg => {
-          const fromUserId = msg.fromUserId?._id || msg.fromUserId?.id || msg.fromUserId;
-          const toUserId = msg.toUserId?._id || msg.toUserId?.id || msg.toUserId;
-          return (fromUserId === loggedInId && toUserId === otherUserId) ||
-                 (fromUserId === otherUserId && toUserId === loggedInId);
-        });
-      const lastMsg = convMessages[convMessages.length - 1];
-        if (!lastMsg) return null;
+    // Conversations from matches (even if no messages yet)
+    const matchConvos = matchItems.map(m => {
+      const otherUserId = m.otherUser?._id || m.otherUser?.id || m.otherUser;
+      const convMessages = messages.filter(msg => {
+        const fromUserId = msg.fromUserId?._id || msg.fromUserId?.id || msg.fromUserId;
+        const toUserId = msg.toUserId?._id || msg.toUserId?.id || msg.toUserId;
+        return (
+          (fromUserId === loggedInId && toUserId === otherUserId) ||
+          (fromUserId === otherUserId && toUserId === loggedInId)
+        );
+      });
+      const lastMsg = convMessages[convMessages.length - 1] || null;
       return {
         ...m,
         type: 'match',
-          lastMessage: lastMsg.text,
-          lastMessageAt: lastMsg.createdAt
+        lastMessage: lastMsg ? lastMsg.text : null,
+        lastMessageAt: lastMsg ? lastMsg.createdAt : m.createdAt,
       };
-      })
-      .filter(Boolean);
+    });
 
     const acceptedRequests = messageRequests
       .filter(r => {
@@ -592,21 +687,63 @@ export default function App() {
     }).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
   }, [chatUser, loggedInUser, messages]);
 
-  const handleOpenChat = useCallback((user) => {
+  const handleOpenChat = useCallback(async (user) => {
     setChatUser(user);
     setActiveTab("chat");
-  }, []);
+    
+    // Load messages from backend when opening chat
+    if (user && loggedInUser) {
+      try {
+        const userId = user._id || user.id;
+        const conversationMessages = await messagesAPI.getConversation(userId);
+        // Replace messages for this conversation with backend data
+        setMessages(prev => {
+          const loggedInId = loggedInUser._id || loggedInUser.id;
+          // Remove old messages for this conversation
+          const otherMessages = prev.filter(m => {
+            const fromUserId = m.fromUserId?._id || m.fromUserId?.id || m.fromUserId;
+            const toUserId = m.toUserId?._id || m.toUserId?.id || m.toUserId;
+            return !((fromUserId === loggedInId && toUserId === userId) ||
+                     (fromUserId === userId && toUserId === loggedInId));
+          });
+          // Add new messages from backend
+          return [...otherMessages, ...conversationMessages].sort((a, b) => 
+            new Date(a.createdAt) - new Date(b.createdAt)
+          );
+        });
+        
+        // Mark messages as read
+        await messagesAPI.markAsRead(userId);
+      } catch (error) {
+        console.error('Failed to load conversation:', error);
+      }
+    }
+  }, [loggedInUser]);
 
   const handleCloseChat = useCallback(() => {
     setChatUser(null);
     setActiveTab("messages");
   }, []);
 
-  const handleSendMessage = useCallback((text) => {
+  const handleSendMessage = useCallback(async (text) => {
     if (!chatUser || !loggedInUser) return;
     const loggedInId = loggedInUser._id || loggedInUser.id;
     const chatUserId = chatUser._id || chatUser.id;
     
+    // Non-premium users can only reply (send if they've received messages)
+    if (!isPremium) {
+      const hasReceivedMessages = messages.some(msg => {
+        const fromUserId = msg.fromUserId?._id || msg.fromUserId?.id || msg.fromUserId;
+        const toUserId = msg.toUserId?._id || msg.toUserId?.id || msg.toUserId;
+        return fromUserId === chatUserId && toUserId === loggedInId;
+      });
+      
+      if (!hasReceivedMessages) {
+        alert('You need a premium account to start a conversation. You can reply to messages you\'ve received for free.');
+        return;
+      }
+    }
+
     const isMatched = matches.some(m => {
       const user1Id = m.user1Id?._id || m.user1Id?.id || m.user1Id;
       const user2Id = m.user2Id?._id || m.user2Id?.id || m.user2Id;
@@ -622,53 +759,108 @@ export default function App() {
              r.status === 'accepted';
     });
     
-    if (!isMatched && !hasAcceptedRequest) return;
+    if (!isMatched && !hasAcceptedRequest) {
+      alert('You can only message matched users or users with accepted message requests.');
+      return;
+    }
     
-    const newMsg = {
-      id: `msg-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      fromUserId: loggedInId,
-      toUserId: chatUserId,
-      text,
-      createdAt: new Date().toISOString()
-    };
-    setMessages(prev => [...prev, newMsg]);
-  }, [chatUser, loggedInUser, matches, messageRequests]);
+    try {
+      // Send message via backend API
+      const sentMessage = await messagesAPI.send(chatUserId, text);
+      
+      // Update local state with the response
+      setMessages(prev => [...prev, sentMessage]);
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      alert(error.message || 'Failed to send message. Please try again.');
+    }
+  }, [chatUser, loggedInUser, isPremium, matches, messageRequests]);
 
-  const handleSendMessageRequest = useCallback((toUser, adjective) => {
+  const handleSendMessageRequest = useCallback(async (toUser, adjective) => {
     if (!loggedInUser) return;
-    const loggedInId = loggedInUser._id || loggedInUser.id;
     const toUserId = toUser._id || toUser.id;
-    const newRequest = {
-      id: `req-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      fromUserId: loggedInId,
-      toUserId: toUserId,
-      adjective,
-      status: 'pending',
-      createdAt: new Date().toISOString()
-    };
-    setMessageRequests(prev => {
-      const fromUserId = prev.find(r => {
-        const rFromUserId = r.fromUserId?._id || r.fromUserId?.id || r.fromUserId;
-        const rToUserId = r.toUserId?._id || r.toUserId?.id || r.toUserId;
-        return rFromUserId === loggedInId && rToUserId === toUserId;
+    
+    try {
+      // Create message request in backend (only premium users allowed by server)
+      const request = await messageRequestsAPI.create(toUserId, adjective);
+      // Merge into local state (avoid duplicates)
+      setMessageRequests(prev => {
+        const exists = prev.find(r => {
+          const rId = r._id || r.id;
+          return rId === (request._id || request.id);
+        });
+        if (exists) return prev;
+        return [request, ...prev];
       });
-      if (fromUserId) {
-        return prev;
-      }
-      return [newRequest, ...prev];
-    });
+    } catch (error) {
+      console.error('Failed to send message request:', error);
+      alert(error.message || 'Failed to send message request. Please try again.');
+    }
   }, [loggedInUser]);
 
-  const handleAcceptRequest = useCallback((requestId) => {
-    setMessageRequests(prev => 
-      prev.map(r => r.id === requestId ? { ...r, status: 'accepted' } : r)
-    );
+  const handleAcceptRequest = useCallback(async (requestId) => {
+    try {
+      const updated = await messageRequestsAPI.updateStatus(requestId, 'accepted');
+      const { request, match } = updated;
+
+      // Update requests state
+      setMessageRequests(prev =>
+        prev.map(r => {
+          const rId = r._id || r.id;
+          const updatedId = request._id || request.id;
+          return rId === updatedId ? request : r;
+        })
+      );
+
+      // If backend created a match, merge it into matches so it shows under Matches
+      if (match) {
+        setMatches(prev => {
+          const exists = prev.find(m => {
+            const id = m._id || m.id;
+            return id === match.id;
+          });
+          if (exists) return prev;
+
+          // Format like /matches route output
+          const currentUserId = loggedInUser?._id || loggedInUser?.id;
+          const otherUserId =
+            String(match.user1Id) === String(currentUserId) ? match.user2Id : match.user1Id;
+          const otherUser = users.find(u => {
+            const uid = u._id || u.id;
+            return String(uid) === String(otherUserId);
+          });
+
+          const formatted = {
+            id: match.id,
+            user1Id: match.user1Id,
+            user2Id: match.user2Id,
+            otherUser,
+            adjective: match.adjective,
+            createdAt: match.createdAt,
+          };
+
+          return [formatted, ...prev];
+        });
+      }
+    } catch (error) {
+      console.error('Failed to accept request:', error);
+      alert(error.message || 'Failed to accept request. Please try again.');
+    }
   }, []);
 
-  const handleDeclineRequest = useCallback((requestId) => {
-    setMessageRequests(prev => 
-      prev.map(r => r.id === requestId ? { ...r, status: 'declined' } : r)
-    );
+  const handleDeclineRequest = useCallback(async (requestId) => {
+    try {
+      const updated = await messageRequestsAPI.updateStatus(requestId, 'declined');
+      setMessageRequests(prev =>
+        prev.map(r => {
+          const rId = r._id || r.id;
+          return rId === (updated._id || updated.id) ? updated : r;
+        })
+      );
+    } catch (error) {
+      console.error('Failed to decline request:', error);
+      alert(error.message || 'Failed to decline request. Please try again.');
+    }
   }, []);
 
   if (!isLoaded) {
@@ -723,6 +915,7 @@ export default function App() {
           age: parsed.age,
           skills: parsed.skills || [],
           imageUrl: parsed.imageUrl || '',
+          note: parsed.note || '', // Include note field
           isPremium: parsed.isPremium || false,
           email: parsed.email,
           phone: parsed.phone
@@ -825,6 +1018,7 @@ export default function App() {
                   matchesCount={currentProfileMatchesCount}
                   vibesSentToday={vibesSentToday}
                   isPremium={isPremium}
+                  canSendVibe={loggedInUser ? (loggedInUser.imageUrl && typeof loggedInUser.imageUrl === 'string' && loggedInUser.imageUrl.trim() !== '') : false}
                 />
               ) : (
                 <div className="empty-state">
