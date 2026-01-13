@@ -5,7 +5,13 @@
 const getApiBaseUrl = () => {
   // If VITE_API_URL is explicitly set, use it (highest priority)
   if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
+    let url = import.meta.env.VITE_API_URL.trim();
+    // Ensure it ends with /api if it's a full URL without /api
+    if (url.startsWith('http') && !url.endsWith('/api') && !url.includes('/api/')) {
+      // If it's a full URL without /api, add it
+      url = url.endsWith('/') ? `${url}api` : `${url}/api`;
+    }
+    return url;
   }
   
   // In development, use proxy
