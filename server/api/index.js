@@ -15,6 +15,7 @@ const allowedOrigins = process.env.FRONTEND_URL
 
 console.log('🔧 CORS Configuration:');
 console.log('   Allowed Origins:', allowedOrigins);
+console.log('   NODE_ENV:', process.env.NODE_ENV);
 
 // CORS middleware
 app.use(cors({
@@ -57,19 +58,52 @@ if (mongoose.connection.readyState === 0) {
   });
 }
 
-// Routes
-app.use('/api/auth', require('../routes/auth'));
-app.use('/api/users', require('../routes/users'));
-app.use('/api/upload', require('../routes/upload'));
-app.use('/api/notifications', require('../routes/notifications'));
-app.use('/api/matches', require('../routes/matches'));
-app.use('/api/messages', require('../routes/messages'));
-app.use('/api/message-requests', require('../routes/messageRequests'));
-app.use('/api/analytics', require('../routes/analytics'));
-
-// Health check
+// Health check - handle both /api/health and /health (Vercel might strip /api)
 app.get('/api/health', (req, res) => {
+  console.log('🏥 Health check called at /api/health');
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+app.get('/health', (req, res) => {
+  console.log('🏥 Health check called at /health');
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Routes - handle both /api/* and /* (Vercel might strip /api prefix)
+app.use('/api/auth', require('../routes/auth'));
+app.use('/auth', require('../routes/auth'));
+
+app.use('/api/users', require('../routes/users'));
+app.use('/users', require('../routes/users'));
+
+app.use('/api/upload', require('../routes/upload'));
+app.use('/upload', require('../routes/upload'));
+
+app.use('/api/notifications', require('../routes/notifications'));
+app.use('/notifications', require('../routes/notifications'));
+
+app.use('/api/matches', require('../routes/matches'));
+app.use('/matches', require('../routes/matches'));
+
+app.use('/api/messages', require('../routes/messages'));
+app.use('/messages', require('../routes/messages'));
+
+app.use('/api/message-requests', require('../routes/messageRequests'));
+app.use('/message-requests', require('../routes/messageRequests'));
+
+app.use('/api/analytics', require('../routes/analytics'));
+app.use('/analytics', require('../routes/analytics'));
+
+// Debug route to see what paths are being received
+app.use((req, res, next) => {
+  console.log('📥 Request received:', {
+    method: req.method,
+    path: req.path,
+    url: req.url,
+    originalUrl: req.originalUrl,
+    baseUrl: req.baseUrl
+  });
+  next();
 });
 
 // Error handling
@@ -80,4 +114,16 @@ app.use((err, req, res, next) => {
   });
 });
 
+// 404 handler
+app.use((req, res) => {
+  console.log('❌ 404 - Route not found:', req.method, req.path);
+  res.status(404).json({ 
+    error: `Cannot ${req.method} ${req.path}`,
+    receivedPath: req.path,
+    receivedUrl: req.url,
+    originalUrl: req.originalUrl
+  });
+});
+
+// Export for Vercel serverless
 module.exports = app;
