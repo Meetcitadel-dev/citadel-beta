@@ -1,8 +1,9 @@
-// In development, use proxy. In production, use env variable
-// For Vercel deployment, set VITE_API_URL environment variable to your backend URL
-// Example: VITE_API_URL=https://your-backend.vercel.app
+// In development, use proxy. In production, use env variable or same origin
+// For Vercel deployment:
+// Option 1: Set VITE_API_URL environment variable to your backend URL
+// Option 2: If backend is on same Vercel project, use /api (requires vercel.json rewrite)
 const getApiBaseUrl = () => {
-  // If VITE_API_URL is explicitly set, use it
+  // If VITE_API_URL is explicitly set, use it (highest priority)
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL;
   }
@@ -12,13 +13,21 @@ const getApiBaseUrl = () => {
     return '/api';
   }
   
-  // In production, if no env var is set, show helpful error
-  console.error('⚠️ VITE_API_URL environment variable is not set!');
-  console.error('Please set VITE_API_URL in your Vercel environment variables to your backend URL.');
-  return '/api'; // Fallback, but will likely fail
+  // In production, try to use same origin /api first (works if backend is on same domain with vercel.json rewrite)
+  // This allows the vercel.json rewrite to work
+  return '/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();
+
+// Log API configuration in production for debugging
+if (import.meta.env.PROD) {
+  console.log('🔧 API Configuration:', {
+    baseUrl: API_BASE_URL,
+    hasEnvVar: !!import.meta.env.VITE_API_URL,
+    envVar: import.meta.env.VITE_API_URL || 'not set'
+  });
+}
 
 // Get auth token from localStorage
 const getToken = () => {
@@ -63,11 +72,13 @@ const apiRequest = async (endpoint, options = {}) => {
 
   const url = `${API_BASE_URL}${endpoint}`;
   console.log('🌐 API Request:', url, options.method || 'GET');
+  console.log('🔗 Full URL:', url);
 
   try {
   const response = await fetch(url, {
     ...options,
     headers,
+    mode: 'cors', // Explicitly set CORS mode
   });
   
   console.log('📡 API Response:', response.status, response.statusText, response.url);
@@ -85,7 +96,13 @@ const apiRequest = async (endpoint, options = {}) => {
       } else {
         // If not JSON, check status
         if (response.status === 404) {
-          errorMessage = 'API endpoint not found. Please check the server configuration.';
+          // Provide helpful error message for 404
+          const isProduction = import.meta.env.PROD;
+          if (isProduction && !import.meta.env.VITE_API_URL) {
+            errorMessage = 'Backend API not found. Please set VITE_API_URL environment variable in Vercel to your backend URL, or configure vercel.json rewrites.';
+          } else {
+            errorMessage = 'API endpoint not found. Please check that the backend server is running and accessible.';
+          }
         } else {
           errorMessage = response.statusText || errorMessage;
         }
@@ -95,8 +112,33 @@ const apiRequest = async (endpoint, options = {}) => {
 
   return response.json();
   } catch (error) {
-    if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      throw new Error('Unable to connect to server. Please make sure the backend server is running.');
+    console.error('❌ API Request Failed:', error);
+    console.error('📍 Attempted URL:', url);
+    console.error('🔧 API Base URL:', API_BASE_URL);
+    console.error('🔍 Error Type:', error.name);
+    console.error('🔍 Error Message:', error.message);
+    
+    // Check for specific error types
+    if (error.name === 'TypeError' && (error.message.includes('fetch') || error.message.includes('Failed to fetch'))) {
+      const isProduction = import.meta.env.PROD;
+      const backendUrl = import.meta.env.VITE_API_URL || API_BASE_URL;
+      
+      // Try to determine the specific issue
+      let specificIssue = '';
+      if (error.message.includes('CORS')) {
+        specificIssue = 'CORS error - Backend is blocking requests. Check FRONTEND_URL in backend environment variables.';
+      } else if (error.message.includes('network') || error.message.includes('NetworkError')) {
+        specificIssue = 'Network error - Backend might be down or URL is incorrect.';
+      } else {
+        specificIssue = 'Connection failed - Backend might not be accessible at this URL.';
+      }
+      
+      // More specific error messages
+      if (isProduction) {
+        throw new Error(`Cannot connect to backend at ${backendUrl}. ${specificIssue} Please verify: 1) Backend is deployed and running, 2) Backend URL in VITE_API_URL is correct, 3) Backend CORS allows your frontend domain (set FRONTEND_URL in backend), 4) Test backend directly: ${backendUrl}/api/health`);
+      } else {
+        throw new Error(`Cannot connect to backend at ${backendUrl}. ${specificIssue} Please make sure the backend server is running (npm run server:dev).`);
+      }
     }
     throw error;
   }
@@ -359,6 +401,61 @@ export const messageRequestsAPI = {
     });
     return data.request;
   },
+};
+
+// Test backend connectivity
+export const testBackendConnection = async () => {
+  const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? '/api' : '/api');
+  const testUrl = `${baseUrl}/health`;
+  
+  console.log('🔍 Testing backend connection...');
+  console.log('📍 Test URL:', testUrl);
+  console.log('🔧 Base URL:', baseUrl);
+  console.log('🌍 Environment:', import.meta.env.MODE);
+  console.log('🔑 VITE_API_URL:', import.meta.env.VITE_API_URL || 'not set');
+  
+  try {
+    const response = await fetch(testUrl, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      mode: 'cors',
+    });
+    
+    console.log('✅ Backend Health Check Response:', {
+      status: response.status,
+      statusText: response.statusText,
+      url: response.url,
+      ok: response.ok
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('✅ Backend is accessible:', data);
+      return { success: true, data };
+    } else {
+      console.error('❌ Backend returned error:', response.status, response.statusText);
+      return { success: false, error: `Backend returned ${response.status}: ${response.statusText}` };
+    }
+  } catch (error) {
+    console.error('❌ Backend connection test failed:', error);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
+    
+    return { 
+      success: false, 
+      error: error.message,
+      details: {
+        name: error.name,
+        message: error.message,
+        attemptedUrl: testUrl
+      }
+    };
+  }
 };
 
 export { getToken, setToken, getCurrentUser, setCurrentUser };

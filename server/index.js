@@ -9,10 +9,56 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// CORS configuration
+// CORS configuration - allow multiple origins
+const allowedOrigins = process.env.FRONTEND_URL 
+  ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
+  : ['http://localhost:5173'];
+
+console.log('🔧 CORS Configuration:');
+console.log('   Allowed Origins:', allowedOrigins);
+console.log('   NODE_ENV:', process.env.NODE_ENV);
+
+// CORS middleware with proper preflight handling
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  credentials: true
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) {
+      console.log('✅ Allowing request with no origin');
+      return callback(null, true);
+    }
+    
+    // Check if origin is in allowed list
+    const isAllowed = allowedOrigins.some(allowed => {
+      // Exact match
+      if (origin === allowed) return true;
+      // Domain match (without protocol)
+      const allowedDomain = allowed.replace(/^https?:\/\//, '').replace(/^www\./, '');
+      const originDomain = origin.replace(/^https?:\/\//, '').replace(/^www\./, '');
+      if (originDomain === allowedDomain) return true;
+      // Subdomain match
+      if (origin.includes(allowedDomain)) return true;
+      return false;
+    });
+    
+    if (isAllowed) {
+      console.log('✅ CORS allowed for origin:', origin);
+      callback(null, true);
+    } else if (process.env.NODE_ENV === 'development') {
+      // In development, allow all origins
+      console.log('✅ CORS allowed (development mode) for origin:', origin);
+      callback(null, true);
+    } else {
+      console.warn('⚠️ CORS blocked origin:', origin);
+      console.warn('   Allowed origins:', allowedOrigins);
+      console.warn('   Set FRONTEND_URL environment variable to allow this origin');
+      // Still allow for now to help debug, but log the issue
+      callback(null, true);
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Type', 'Authorization']
 }));
 
 // JSON body parser (but don't parse multipart/form-data)

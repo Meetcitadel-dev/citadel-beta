@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { generateAdjectives } from "./data/adjectives.js";
 import db from "./data/db.js";
-import { authAPI, usersAPI, notificationsAPI, matchesAPI, messagesAPI, messageRequestsAPI, getToken, getCurrentUser, clearCache } from "./utils/api.js";
+import { authAPI, usersAPI, notificationsAPI, matchesAPI, messagesAPI, messageRequestsAPI, getToken, getCurrentUser, clearCache, testBackendConnection } from "./utils/api.js";
 import AuthScreen from "./components/AuthScreen.jsx";
 import EmailVerificationScreen from "./components/EmailVerificationScreen.jsx";
 import DiscoverScreen from "./components/DiscoverScreen.jsx";
@@ -99,6 +99,16 @@ export default function App() {
 
   // Initialize database and load data on mount
   useEffect(() => {
+    // Test backend connectivity on app load (only in production)
+    if (import.meta.env.PROD) {
+      testBackendConnection().then(result => {
+        if (!result.success) {
+          console.error('⚠️ Backend connectivity test failed:', result);
+          console.error('💡 Check your VITE_API_URL environment variable and backend deployment');
+        }
+      });
+    }
+    
     // Initialize localStorage for messages, requests (legacy/local-only)
     setMessages(db.messages.getAll());
     setMessageRequests(db.messageRequests.getAll());

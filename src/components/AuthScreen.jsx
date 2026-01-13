@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { authAPI } from "../utils/api.js";
+import { authAPI, testBackendConnection } from "../utils/api.js";
 import { isValidUniversityEmail, extractUniversityFromEmail } from "../utils/emailValidation.js";
 
 export default function AuthScreen({ onAuthSuccess }) {
@@ -10,6 +10,8 @@ export default function AuthScreen({ onAuthSuccess }) {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isNewUser, setIsNewUser] = useState(false);
+  const [backendTestResult, setBackendTestResult] = useState(null);
+  const [isTestingBackend, setIsTestingBackend] = useState(false);
   
   // Signup form state
   const [signupData, setSignupData] = useState({
@@ -60,8 +62,13 @@ export default function AuthScreen({ onAuthSuccess }) {
       setStep("otp");
     } catch (err) {
       console.error('Signup error:', err);
-      if (err.message.includes("Unable to connect") || err.message.includes("Failed to fetch")) {
-        setError("Cannot connect to server. Please make sure the backend server is running (npm run server:dev)");
+      console.error('Error details:', {
+        message: err.message,
+        name: err.name,
+        stack: err.stack
+      });
+      if (err.message.includes("Cannot connect") || err.message.includes("Unable to connect") || err.message.includes("Failed to fetch")) {
+        setError(err.message || "Cannot connect to backend. Please check backend URL and CORS settings.");
       } else if (err.message.includes("not found") || err.message.includes("404")) {
         if (mode === "login") {
           setError("No account found with this email. Please sign up first.");
@@ -103,8 +110,9 @@ export default function AuthScreen({ onAuthSuccess }) {
         onAuthSuccess(data.user, false);
       }
     } catch (err) {
-      if (err.message.includes("Unable to connect") || err.message.includes("Failed to fetch")) {
-        setError("Cannot connect to server. Please make sure the backend server is running (npm run server:dev)");
+      console.error('OTP verification error:', err);
+      if (err.message.includes("Cannot connect") || err.message.includes("Unable to connect") || err.message.includes("Failed to fetch")) {
+        setError(err.message || "Cannot connect to backend. Please check backend URL and CORS settings.");
       } else {
         setError(err.message || "Invalid OTP. Please try again.");
       }
@@ -162,8 +170,9 @@ export default function AuthScreen({ onAuthSuccess }) {
       alert("Account created! Please check your email to verify your account.");
       onAuthSuccess(data.user, true);
     } catch (err) {
-      if (err.message.includes("Unable to connect") || err.message.includes("Failed to fetch")) {
-        setError("Cannot connect to server. Please make sure the backend server is running (npm run server:dev)");
+      console.error('Signup submit error:', err);
+      if (err.message.includes("Cannot connect") || err.message.includes("Unable to connect") || err.message.includes("Failed to fetch")) {
+        setError(err.message || "Cannot connect to backend. Please check backend URL and CORS settings.");
       } else {
         setError(err.message || "Failed to create account. Please try again.");
       }
@@ -175,6 +184,28 @@ export default function AuthScreen({ onAuthSuccess }) {
   const handleSignupChange = (field) => (e) => {
     setSignupData(prev => ({ ...prev, [field]: e.target.value }));
     setError("");
+  };
+
+  const handleTestBackend = async () => {
+    setIsTestingBackend(true);
+    setError("");
+    setBackendTestResult(null);
+    
+    try {
+      const result = await testBackendConnection();
+      setBackendTestResult(result);
+      
+      if (result.success) {
+        setError("✅ Backend is accessible! You can proceed with signup.");
+      } else {
+        setError(`❌ Backend test failed: ${result.error}. Check console for details.`);
+      }
+    } catch (err) {
+      setBackendTestResult({ success: false, error: err.message });
+      setError(`❌ Backend test error: ${err.message}`);
+    } finally {
+      setIsTestingBackend(false);
+    }
   };
 
   return (
@@ -193,6 +224,63 @@ export default function AuthScreen({ onAuthSuccess }) {
           <div className="auth-error">
             <span>⚠️</span> {error}
           </div>
+        )}
+
+        {/* Backend Test Result */}
+        {backendTestResult && (
+          <div style={{
+            background: backendTestResult.success ? 'rgba(0, 255, 136, 0.1)' : 'rgba(255, 0, 0, 0.1)',
+            border: `1px solid ${backendTestResult.success ? 'rgba(0, 255, 136, 0.3)' : 'rgba(255, 0, 0, 0.3)'}`,
+            borderRadius: '8px',
+            padding: '12px',
+            marginBottom: '20px',
+            fontSize: '12px'
+          }}>
+            <div style={{ fontWeight: '600', marginBottom: '4px' }}>
+              {backendTestResult.success ? '✅ Backend Test: Success' : '❌ Backend Test: Failed'}
+            </div>
+            {backendTestResult.details && (
+              <div style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>
+                URL: {backendTestResult.details.attemptedUrl}<br/>
+                Error: {backendTestResult.error}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Backend Test Button - always show on email step */}
+        {step === "email" && (
+          <button
+            type="button"
+            onClick={handleTestBackend}
+            disabled={isTestingBackend}
+            style={{
+              width: '100%',
+              padding: '12px',
+              marginBottom: '15px',
+              background: 'rgba(0, 255, 136, 0.15)',
+              border: '2px solid rgba(0, 255, 136, 0.4)',
+              borderRadius: '8px',
+              color: '#00ff88',
+              cursor: isTestingBackend ? 'not-allowed' : 'pointer',
+              fontSize: '13px',
+              fontWeight: '600',
+              transition: 'all 0.2s',
+              opacity: isTestingBackend ? 0.6 : 1
+            }}
+            onMouseEnter={(e) => {
+              if (!isTestingBackend) {
+                e.target.style.background = 'rgba(0, 255, 136, 0.25)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isTestingBackend) {
+                e.target.style.background = 'rgba(0, 255, 136, 0.15)';
+              }
+            }}
+          >
+            {isTestingBackend ? '⏳ Testing Backend...' : '🔍 Test Backend Connection'}
+          </button>
         )}
 
         {/* Email Input Step */}
