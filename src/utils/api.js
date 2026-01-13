@@ -1,5 +1,24 @@
-// In development, use proxy. In production, use same origin or env variable
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+// In development, use proxy. In production, use env variable
+// For Vercel deployment, set VITE_API_URL environment variable to your backend URL
+// Example: VITE_API_URL=https://your-backend.vercel.app
+const getApiBaseUrl = () => {
+  // If VITE_API_URL is explicitly set, use it
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  
+  // In development, use proxy
+  if (import.meta.env.DEV) {
+    return '/api';
+  }
+  
+  // In production, if no env var is set, show helpful error
+  console.error('⚠️ VITE_API_URL environment variable is not set!');
+  console.error('Please set VITE_API_URL in your Vercel environment variables to your backend URL.');
+  return '/api'; // Fallback, but will likely fail
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 // Get auth token from localStorage
 const getToken = () => {
