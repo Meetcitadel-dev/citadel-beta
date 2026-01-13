@@ -448,13 +448,25 @@ export const testBackendConnection = async () => {
   
   try {
     console.log('🌐 Attempting fetch to:', testUrl);
+    console.log('🔍 Fetch options:', {
+      method: 'GET',
+      mode: 'cors',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    
     const response = await fetch(testUrl, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
       },
       mode: 'cors',
+      signal: controller.signal,
     });
+    
+    clearTimeout(timeoutId);
     
     console.log('📡 Fetch completed. Response details:', {
       status: response.status,
@@ -498,19 +510,28 @@ export const testBackendConnection = async () => {
     
     // Provide more specific error messages
     let errorMessage = error.message;
-    if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-      errorMessage = `Cannot reach backend at ${testUrl}. Possible causes: 1) Backend is down, 2) CORS blocking the request, 3) Network error. Check browser Network tab for details.`;
+    let status = null;
+    
+    if (error.name === 'AbortError') {
+      errorMessage = `Request timeout - Backend at ${testUrl} did not respond within 10 seconds. Backend might be down or not deployed.`;
+    } else if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+      // Check if it's a CORS error or network error
+      errorMessage = `Cannot reach backend at ${testUrl}. `;
+      errorMessage += `This usually means: 1) Backend is not deployed/running, 2) Backend URL is incorrect, 3) CORS is blocking (check Network tab), 4) Network error. `;
+      errorMessage += `Try opening ${testUrl} directly in your browser to test.`;
     }
     
     return { 
       success: false, 
       error: errorMessage,
+      status: status,
       details: {
         name: error.name,
         message: error.message,
         attemptedUrl: testUrl,
         baseUrl: baseUrl,
-        viteApiUrl: import.meta.env.VITE_API_URL
+        viteApiUrl: import.meta.env.VITE_API_URL,
+        errorType: error.name
       }
     };
   }
