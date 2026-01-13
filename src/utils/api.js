@@ -31,8 +31,18 @@ if (import.meta.env.PROD) {
   console.log('🔧 API Configuration:', {
     baseUrl: API_BASE_URL,
     hasEnvVar: !!import.meta.env.VITE_API_URL,
-    envVar: import.meta.env.VITE_API_URL || 'not set'
+    rawEnvVar: import.meta.env.VITE_API_URL || 'not set',
+    processedBaseUrl: API_BASE_URL,
+    environment: import.meta.env.MODE
   });
+  
+  // Warn if URL doesn't include /api
+  if (API_BASE_URL.startsWith('http') && !API_BASE_URL.includes('/api')) {
+    console.warn('⚠️ WARNING: API_BASE_URL does not include /api. This may cause 404 errors.');
+    console.warn('   Current:', API_BASE_URL);
+    console.warn('   Should be:', API_BASE_URL + '/api');
+    console.warn('   Update VITE_API_URL to include /api at the end');
+  }
 }
 
 // Get auth token from localStorage
@@ -411,7 +421,8 @@ export const messageRequestsAPI = {
 
 // Test backend connectivity
 export const testBackendConnection = async () => {
-  const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? '/api' : '/api');
+  // Use the same getApiBaseUrl logic to ensure consistency
+  const baseUrl = getApiBaseUrl();
   
   // Construct health check URL properly
   let testUrl;
@@ -431,11 +442,12 @@ export const testBackendConnection = async () => {
   
   console.log('🔍 Testing backend connection...');
   console.log('📍 Test URL:', testUrl);
-  console.log('🔧 Base URL:', baseUrl);
+  console.log('🔧 Base URL (after auto-fix):', baseUrl);
+  console.log('🔧 Raw VITE_API_URL:', import.meta.env.VITE_API_URL || 'not set');
   console.log('🌍 Environment:', import.meta.env.MODE);
-  console.log('🔑 VITE_API_URL:', import.meta.env.VITE_API_URL || 'not set');
   
   try {
+    console.log('🌐 Attempting fetch to:', testUrl);
     const response = await fetch(testUrl, {
       method: 'GET',
       headers: {
@@ -444,11 +456,12 @@ export const testBackendConnection = async () => {
       mode: 'cors',
     });
     
-    console.log('✅ Backend Health Check Response:', {
+    console.log('📡 Fetch completed. Response details:', {
       status: response.status,
       statusText: response.statusText,
       url: response.url,
-      ok: response.ok
+      ok: response.ok,
+      headers: Object.fromEntries(response.headers.entries())
     });
     
     if (response.ok) {
@@ -456,8 +469,24 @@ export const testBackendConnection = async () => {
       console.log('✅ Backend is accessible:', data);
       return { success: true, data };
     } else {
+      // Try to get error message from response
+      let errorMsg = `Backend returned ${response.status}: ${response.statusText}`;
+      try {
+        const errorData = await response.json();
+        errorMsg = errorData.error || errorMsg;
+      } catch (e) {
+        // Response is not JSON, use status text
+      }
+      
       console.error('❌ Backend returned error:', response.status, response.statusText);
-      return { success: false, error: `Backend returned ${response.status}: ${response.statusText}` };
+      console.error('   Response URL:', response.url);
+      console.error('   Error message:', errorMsg);
+      
+      if (response.status === 404) {
+        errorMsg = `Backend endpoint not found (404). Check if backend is deployed and routes are correct. Test URL: ${testUrl}`;
+      }
+      
+      return { success: false, error: errorMsg, status: response.status };
     }
   } catch (error) {
     console.error('❌ Backend connection test failed:', error);
@@ -467,13 +496,21 @@ export const testBackendConnection = async () => {
       stack: error.stack
     });
     
+    // Provide more specific error messages
+    let errorMessage = error.message;
+    if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+      errorMessage = `Cannot reach backend at ${testUrl}. Possible causes: 1) Backend is down, 2) CORS blocking the request, 3) Network error. Check browser Network tab for details.`;
+    }
+    
     return { 
       success: false, 
-      error: error.message,
+      error: errorMessage,
       details: {
         name: error.name,
         message: error.message,
-        attemptedUrl: testUrl
+        attemptedUrl: testUrl,
+        baseUrl: baseUrl,
+        viteApiUrl: import.meta.env.VITE_API_URL
       }
     };
   }

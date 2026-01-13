@@ -240,9 +240,21 @@ export default function AuthScreen({ onAuthSuccess }) {
               {backendTestResult.success ? '✅ Backend Test: Success' : '❌ Backend Test: Failed'}
             </div>
             {backendTestResult.details && (
-              <div style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>
-                URL: {backendTestResult.details.attemptedUrl}<br/>
-                Error: {backendTestResult.error}
+              <div style={{ fontSize: '11px', color: '#999', marginTop: '4px', lineHeight: '1.6' }}>
+                <strong>Test URL:</strong> {backendTestResult.details.attemptedUrl}<br/>
+                <strong>Base URL:</strong> {backendTestResult.details.baseUrl || 'N/A'}<br/>
+                <strong>Raw VITE_API_URL:</strong> {backendTestResult.details.viteApiUrl || 'not set'}<br/>
+                <strong>Error:</strong> {backendTestResult.error}<br/>
+                <strong>Status:</strong> {backendTestResult.status || 'N/A'}
+              </div>
+            )}
+            {!backendTestResult.success && (
+              <div style={{ fontSize: '11px', color: '#ff6b6b', marginTop: '8px', padding: '8px', background: 'rgba(255, 0, 0, 0.1)', borderRadius: '4px' }}>
+                <strong>💡 Troubleshooting:</strong><br/>
+                1. Check if backend is accessible: <a href={backendTestResult.details?.attemptedUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#00ff88' }}>Test URL</a><br/>
+                2. Verify VITE_API_URL includes /api: Should be `https://citadel-backend.vercel.app/api`<br/>
+                3. Check browser console (F12) for detailed logs<br/>
+                4. Make sure frontend was redeployed after updating env var
               </div>
             )}
           </div>
