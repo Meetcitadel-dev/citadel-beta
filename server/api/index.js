@@ -49,13 +49,29 @@ app.use(express.urlencoded({ extended: true }));
 // Database connection
 if (mongoose.connection.readyState === 0) {
   const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/citadel-app';
+  
+  // Log connection string info (without password) for debugging
+  if (MONGODB_URI) {
+    const uriPreview = MONGODB_URI.replace(/:[^:@]+@/, ':****@'); // Hide password
+    console.log('🔗 MongoDB URI:', uriPreview);
+    console.log('🔗 URI starts with mongodb:// or mongodb+srv://?', 
+      MONGODB_URI.startsWith('mongodb://') || MONGODB_URI.startsWith('mongodb+srv://'));
+  } else {
+    console.warn('⚠️ MONGODB_URI is not set!');
+  }
+  
   mongoose.connect(MONGODB_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   }).then(() => {
     console.log('✅ Connected to MongoDB');
   }).catch((error) => {
-    console.error('❌ MongoDB connection error:', error);
+    console.error('❌ MongoDB connection error:', error.message);
+    console.error('❌ Full error:', error);
+    if (error.message.includes('Invalid scheme')) {
+      console.error('💡 Fix: Make sure MONGODB_URI starts with mongodb:// or mongodb+srv://');
+      console.error('💡 Current URI preview:', MONGODB_URI ? MONGODB_URI.substring(0, 50) + '...' : 'NOT SET');
+    }
   });
 }
 
