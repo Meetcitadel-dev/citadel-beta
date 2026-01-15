@@ -1,12 +1,13 @@
 // Vercel serverless function wrapper for Express app
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-const dotenv = require('dotenv');
+try {
+  const express = require('express');
+  const mongoose = require('mongoose');
+  const cors = require('cors');
+  const dotenv = require('dotenv');
 
-dotenv.config();
+  dotenv.config();
 
-const app = express();
+  const app = express();
 
 // CORS configuration - allow multiple origins
 const allowedOrigins = process.env.FRONTEND_URL 
@@ -94,7 +95,7 @@ app.use('/message-requests', require('../routes/messageRequests'));
 app.use('/api/analytics', require('../routes/analytics'));
 app.use('/analytics', require('../routes/analytics'));
 
-// Debug route to see what paths are being received
+// Debug middleware - place BEFORE routes to catch all requests
 app.use((req, res, next) => {
   console.log('📥 Request received:', {
     method: req.method,
@@ -125,5 +126,20 @@ app.use((req, res) => {
   });
 });
 
-// Export for Vercel serverless
-module.exports = app;
+  // Export for Vercel serverless
+  module.exports = app;
+} catch (error) {
+  console.error('❌ Fatal error during server initialization:', error);
+  console.error('Stack:', error.stack);
+  // Export a minimal error handler
+  const express = require('express');
+  const errorApp = express();
+  errorApp.use((req, res) => {
+    res.status(500).json({
+      error: 'Server initialization failed',
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  });
+  module.exports = errorApp;
+}
