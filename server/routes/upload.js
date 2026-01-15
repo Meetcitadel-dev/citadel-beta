@@ -20,7 +20,7 @@ router.post('/profile-image', authenticate, (req, res, next) => {
   });
 
   // Multer middleware with error handling
-  upload.single('image')(req, res, (err) => {
+  upload.single('image')(req, res, async (err) => {
     if (err) {
       console.error('❌ Multer upload error:', err);
       console.error('Error code:', err.code);
