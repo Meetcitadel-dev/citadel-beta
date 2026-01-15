@@ -1,11 +1,25 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 
-// Ensure upload directory exists
-const uploadDir = path.join(__dirname, '../uploads/profile-images');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+// Determine upload directory based on environment
+// Vercel serverless: use /tmp (writable)
+// Local/dev: use server/uploads/profile-images
+const isVercel = process.env.VERCEL === '1' || process.env.NODE_ENV === 'production';
+const uploadDir = isVercel 
+  ? path.join(os.tmpdir(), 'uploads', 'profile-images')
+  : path.join(__dirname, '../uploads/profile-images');
+
+// Ensure upload directory exists (only if we can write)
+try {
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+  console.log('✅ Upload directory ready:', uploadDir);
+} catch (error) {
+  console.warn('⚠️ Could not create upload directory:', error.message);
+  console.warn('⚠️ Uploads may not work in this environment');
 }
 
 // Configure storage
