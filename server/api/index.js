@@ -109,22 +109,34 @@ if (mongoose.connection.readyState === 0) {
 // Middleware to ensure MongoDB is connected before handling requests
 app.use(async (req, res, next) => {
   // Skip health checks - they don't need DB
-  if (req.path === '/health' || req.path === '/api/health') {
+  const path = req.path || req.url;
+  if (path === '/health' || path === '/api/health' || path.startsWith('/health')) {
     return next();
   }
   
   try {
+    const readyState = mongoose.connection.readyState;
+    console.log('🔍 MongoDB connection state:', readyState, '(0=disconnected, 1=connected, 2=connecting, 3=disconnecting)');
+    
     // Ensure connection is established
-    if (mongoose.connection.readyState !== 1) {
-      console.log('⏳ MongoDB not connected, waiting for connection...');
-      await connectMongoDB();
+    if (readyState !== 1) {
+      console.log('⏳ MongoDB not connected (state:', readyState, '), attempting connection...');
+      const connection = await connectMongoDB();
+      console.log('✅ MongoDB connection established, readyState:', mongoose.connection.readyState);
+    } else {
+      console.log('✅ MongoDB already connected');
     }
     next();
   } catch (error) {
     console.error('❌ MongoDB connection failed in middleware:', error.message);
+    console.error('❌ Error stack:', error.stack);
+    console.error('❌ Connection state:', mongoose.connection.readyState);
+    console.error('❌ MONGODB_URI set?', !!process.env.MONGODB_URI);
+    
     res.status(503).json({
       error: 'Database connection failed',
       message: 'Unable to connect to database. Please try again later.',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 });
