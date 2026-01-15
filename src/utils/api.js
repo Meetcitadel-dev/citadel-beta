@@ -427,12 +427,21 @@ export const testBackendConnection = async () => {
   // Construct health check URL properly
   let testUrl;
   if (baseUrl.startsWith('http')) {
-    // Full URL (production) - ensure /api/health
+    // Full URL (production) - ensure /api/health (not /api/api/health)
     if (baseUrl.endsWith('/api')) {
+      // Already ends with /api, just add /health
+      testUrl = `${baseUrl}/health`;
+    } else if (baseUrl.endsWith('/api/')) {
+      // Ends with /api/, just add health
+      testUrl = `${baseUrl}health`;
+    } else if (baseUrl.includes('/api/')) {
+      // Contains /api/ somewhere, append /health
       testUrl = `${baseUrl}/health`;
     } else if (baseUrl.endsWith('/')) {
+      // Ends with /, add api/health
       testUrl = `${baseUrl}api/health`;
     } else {
+      // No /api, add /api/health
       testUrl = `${baseUrl}/api/health`;
     }
   } else {
