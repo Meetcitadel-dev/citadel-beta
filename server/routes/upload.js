@@ -3,6 +3,7 @@ const router = express.Router();
 const upload = require('../middleware/upload');
 const { authenticate } = require('../middleware/auth');
 const path = require('path');
+const fs = require('fs');
 
 // Test route to verify upload router is working
 router.get('/test', (req, res) => {
@@ -52,23 +53,38 @@ router.post('/profile-image', authenticate, (req, res, next) => {
         return res.status(400).json({ error: 'No image file provided. Make sure to use FormData with field name "image".' });
       }
 
-      // Return the URL path to the uploaded image
-      // In production, this would be the full URL, e.g., https://yourdomain.com/uploads/profile-images/filename.jpg
-      const imageUrl = `/uploads/profile-images/${req.file.filename}`;
-      
-      console.log('✅ Image uploaded successfully:', {
-        filename: req.file.filename,
-        size: req.file.size,
-        mimetype: req.file.mimetype,
-        imageUrl: imageUrl
-      });
-      
-      res.json({
-        success: true,
-        imageUrl: imageUrl,
-        filename: req.file.filename,
-        size: req.file.size
-      });
+      // On Vercel serverless, files in /tmp are temporary and not accessible via HTTP
+      // Convert image to base64 and return it so frontend can store it
+      try {
+        const filePath = req.file.path;
+        const fileBuffer = fs.readFileSync(filePath);
+        const base64Image = fileBuffer.toString('base64');
+        const imageUrl = `data:${req.file.mimetype};base64,${base64Image}`;
+        
+        // Clean up temp file
+        try {
+          fs.unlinkSync(filePath);
+        } catch (unlinkError) {
+          console.warn('⚠️ Could not delete temp file:', unlinkError.message);
+        }
+        
+        console.log('✅ Image uploaded and converted to base64:', {
+          filename: req.file.filename,
+          size: req.file.size,
+          mimetype: req.file.mimetype,
+          base64Length: base64Image.length
+        });
+        
+        res.json({
+          success: true,
+          imageUrl: imageUrl,
+          filename: req.file.filename,
+          size: req.file.size
+        });
+      } catch (readError) {
+        console.error('❌ Error reading uploaded file:', readError);
+        res.status(500).json({ error: 'Failed to process uploaded image' });
+      }
     } catch (error) {
       console.error('❌ Upload processing error:', error);
       res.status(500).json({ error: error.message || 'Failed to process uploaded image' });
