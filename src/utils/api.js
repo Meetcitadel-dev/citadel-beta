@@ -151,7 +151,16 @@ const apiRequest = async (endpoint, options = {}) => {
       
       // More specific error messages
       if (isProduction) {
-        throw new Error(`Cannot connect to backend at ${backendUrl}. ${specificIssue} Please verify: 1) Backend is deployed and running, 2) Backend URL in VITE_API_URL is correct, 3) Backend CORS allows your frontend domain (set FRONTEND_URL in backend), 4) Test backend directly: ${backendUrl}/api/health`);
+        // Construct test URL properly (avoid double /api)
+        let testBackendUrl = backendUrl;
+        if (backendUrl.endsWith('/api')) {
+          testBackendUrl = `${backendUrl}/health`;
+        } else if (backendUrl.includes('/api/')) {
+          testBackendUrl = `${backendUrl.replace(/\/api\/.*$/, '')}/api/health`;
+        } else {
+          testBackendUrl = `${backendUrl}/api/health`;
+        }
+        throw new Error(`Cannot connect to backend at ${backendUrl}. ${specificIssue} Please verify: 1) Backend is deployed and running, 2) Backend URL in VITE_API_URL is correct, 3) Backend CORS allows your frontend domain (set FRONTEND_URL in backend), 4) Test backend directly: ${testBackendUrl}`);
       } else {
         throw new Error(`Cannot connect to backend at ${backendUrl}. ${specificIssue} Please make sure the backend server is running (npm run server:dev).`);
       }
