@@ -74,10 +74,13 @@ export default function ProfileScreen({ user, onUpdate, onLogout }) {
     setUploading(true);
     try {
       const result = await uploadAPI.uploadProfileImage(file);
-      // Construct full URL - in development, use localhost:3001, in production use relative path
-      const baseUrl = import.meta.env.DEV ? 'http://localhost:3001' : '';
-      const imageUrl = baseUrl + result.imageUrl;
-      console.log('✅ Image uploaded successfully:', imageUrl);
+      // Backend now returns base64 data URL (data:image/...;base64,...)
+      // Use it directly - no need to construct URL
+      const imageUrl = result.imageUrl;
+      console.log('✅ Image uploaded successfully:', {
+        imageUrl: imageUrl.substring(0, 50) + '...',
+        size: result.size
+      });
       setForm((prev) => ({ ...prev, imageUrl: imageUrl }));
       setSaved(false);
     } catch (error) {
