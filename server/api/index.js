@@ -43,8 +43,9 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 }));
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Increase body size limit for large base64 images (Vercel has 4.5MB limit, so we'll compress images)
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Database connection - connect immediately and cache connection
 let mongoConnectionPromise = null;
