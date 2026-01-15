@@ -414,7 +414,13 @@ export default function App() {
     const loggedInId = loggedInUser._id || loggedInUser.id;
     const filtered = users.filter((u) => {
       const userId = u._id || u.id;
-      return userId !== loggedInId && !matchedUserIds.has(userId);
+      // STRICT: Only show users who have uploaded a profile image
+      const hasImage = u.imageUrl && 
+                      typeof u.imageUrl === 'string' && 
+                      u.imageUrl.trim() !== '';
+      return userId !== loggedInId && 
+             !matchedUserIds.has(userId) && 
+             hasImage; // Must have profile image
     });
     return filtered.sort((a, b) => {
       const aId = a._id || a.id;

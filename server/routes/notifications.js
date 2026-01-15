@@ -40,18 +40,32 @@ router.post('/', authenticate, async (req, res, next) => {
       return res.status(400).json({ error: 'toUserId and adjective are required' });
     }
 
-    // Check if user has uploaded a profile image - MUST validate before allowing vibe
+    // STRICT CHECK: Sender must have uploaded a profile image - MUST validate before allowing vibe
     const sender = await User.findById(req.userId).select('imageUrl');
     if (!sender) {
       return res.status(404).json({ error: 'User not found' });
     }
     
-    const hasImage = sender.imageUrl && 
+    const senderHasImage = sender.imageUrl && 
                     typeof sender.imageUrl === 'string' && 
                     sender.imageUrl.trim() !== '';
     
-    if (!hasImage) {
+    if (!senderHasImage) {
       return res.status(403).json({ error: 'Your profile isn\'t public yet. Upload a photo to send and receive vibes.' });
+    }
+
+    // STRICT CHECK: Recipient must also have uploaded a profile image - cannot receive vibes without image
+    const recipient = await User.findById(toUserId).select('imageUrl');
+    if (!recipient) {
+      return res.status(404).json({ error: 'Recipient user not found' });
+    }
+    
+    const recipientHasImage = recipient.imageUrl && 
+                    typeof recipient.imageUrl === 'string' && 
+                    recipient.imageUrl.trim() !== '';
+    
+    if (!recipientHasImage) {
+      return res.status(403).json({ error: 'This user hasn\'t uploaded a profile photo yet. They need to upload a photo to receive vibes.' });
     }
 
     // Do not allow sending more than one vibe to the same user

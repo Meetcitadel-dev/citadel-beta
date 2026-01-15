@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { authAPI, testBackendConnection } from "../utils/api.js";
+import { authAPI } from "../utils/api.js";
 import { isValidUniversityEmail, extractUniversityFromEmail } from "../utils/emailValidation.js";
 
 export default function AuthScreen({ onAuthSuccess }) {
@@ -10,8 +10,6 @@ export default function AuthScreen({ onAuthSuccess }) {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isNewUser, setIsNewUser] = useState(false);
-  const [backendTestResult, setBackendTestResult] = useState(null);
-  const [isTestingBackend, setIsTestingBackend] = useState(false);
   
   // Signup form state
   const [signupData, setSignupData] = useState({
@@ -186,27 +184,6 @@ export default function AuthScreen({ onAuthSuccess }) {
     setError("");
   };
 
-  const handleTestBackend = async () => {
-    setIsTestingBackend(true);
-    setError("");
-    setBackendTestResult(null);
-    
-    try {
-      const result = await testBackendConnection();
-      setBackendTestResult(result);
-      
-      if (result.success) {
-        setError("✅ Backend is accessible! You can proceed with signup.");
-      } else {
-        setError(`❌ Backend test failed: ${result.error}. Check console for details.`);
-      }
-    } catch (err) {
-      setBackendTestResult({ success: false, error: err.message });
-      setError(`❌ Backend test error: ${err.message}`);
-    } finally {
-      setIsTestingBackend(false);
-    }
-  };
 
   return (
     <div className="auth-screen">
@@ -224,75 +201,6 @@ export default function AuthScreen({ onAuthSuccess }) {
           <div className="auth-error">
             <span>⚠️</span> {error}
           </div>
-        )}
-
-        {/* Backend Test Result */}
-        {backendTestResult && (
-          <div style={{
-            background: backendTestResult.success ? 'rgba(0, 255, 136, 0.1)' : 'rgba(255, 0, 0, 0.1)',
-            border: `1px solid ${backendTestResult.success ? 'rgba(0, 255, 136, 0.3)' : 'rgba(255, 0, 0, 0.3)'}`,
-            borderRadius: '8px',
-            padding: '12px',
-            marginBottom: '20px',
-            fontSize: '12px'
-          }}>
-            <div style={{ fontWeight: '600', marginBottom: '4px' }}>
-              {backendTestResult.success ? '✅ Backend Test: Success' : '❌ Backend Test: Failed'}
-            </div>
-            {backendTestResult.details && (
-              <div style={{ fontSize: '11px', color: '#999', marginTop: '4px', lineHeight: '1.6' }}>
-                <strong>Test URL:</strong> {backendTestResult.details.attemptedUrl}<br/>
-                <strong>Base URL:</strong> {backendTestResult.details.baseUrl || 'N/A'}<br/>
-                <strong>Raw VITE_API_URL:</strong> {backendTestResult.details.viteApiUrl || 'not set'}<br/>
-                <strong>Error:</strong> {backendTestResult.error}<br/>
-                <strong>Status:</strong> {backendTestResult.status || 'N/A'}
-              </div>
-            )}
-            {!backendTestResult.success && (
-              <div style={{ fontSize: '11px', color: '#ff6b6b', marginTop: '8px', padding: '8px', background: 'rgba(255, 0, 0, 0.1)', borderRadius: '4px' }}>
-                <strong>💡 Troubleshooting:</strong><br/>
-                1. Check if backend is accessible: <a href={backendTestResult.details?.attemptedUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#00ff88' }}>Test URL</a><br/>
-                2. Verify VITE_API_URL includes /api: Should be `https://citadel-backend.vercel.app/api`<br/>
-                3. Check browser console (F12) for detailed logs<br/>
-                4. Make sure frontend was redeployed after updating env var
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Backend Test Button - always show on email step */}
-        {step === "email" && (
-          <button
-            type="button"
-            onClick={handleTestBackend}
-            disabled={isTestingBackend}
-            style={{
-              width: '100%',
-              padding: '12px',
-              marginBottom: '15px',
-              background: 'rgba(0, 255, 136, 0.15)',
-              border: '2px solid rgba(0, 255, 136, 0.4)',
-              borderRadius: '8px',
-              color: '#00ff88',
-              cursor: isTestingBackend ? 'not-allowed' : 'pointer',
-              fontSize: '13px',
-              fontWeight: '600',
-              transition: 'all 0.2s',
-              opacity: isTestingBackend ? 0.6 : 1
-            }}
-            onMouseEnter={(e) => {
-              if (!isTestingBackend) {
-                e.target.style.background = 'rgba(0, 255, 136, 0.25)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!isTestingBackend) {
-                e.target.style.background = 'rgba(0, 255, 136, 0.15)';
-              }
-            }}
-          >
-            {isTestingBackend ? '⏳ Testing Backend...' : '🔍 Test Backend Connection'}
-          </button>
         )}
 
         {/* Email Input Step */}

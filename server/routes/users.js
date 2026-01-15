@@ -4,13 +4,24 @@ const User = require('../models/User');
 const { authenticate } = require('../middleware/auth');
 
 // Get all users (for discover feed)
+// STRICT: Only return users who have uploaded a profile image
 router.get('/', authenticate, async (req, res, next) => {
   try {
-    const users = await User.find({ _id: { $ne: req.userId } })
+    const users = await User.find({ 
+      _id: { $ne: req.userId },
+      imageUrl: { $exists: true, $ne: null, $ne: '' } // Only users with profile images
+    })
       .select('name gender college year age skills imageUrl note isPremium')
       .sort({ createdAt: -1 });
     
-    res.json({ users });
+    // Additional validation: filter out any users where imageUrl is not a valid string
+    const validUsers = users.filter(user => {
+      return user.imageUrl && 
+             typeof user.imageUrl === 'string' && 
+             user.imageUrl.trim() !== '';
+    });
+    
+    res.json({ users: validUsers });
   } catch (error) {
     next(error);
   }
