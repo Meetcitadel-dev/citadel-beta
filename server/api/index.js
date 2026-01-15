@@ -70,6 +70,18 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Debug middleware - place BEFORE routes to catch all requests
+app.use((req, res, next) => {
+  console.log('📥 Request received:', {
+    method: req.method,
+    path: req.path,
+    url: req.url,
+    originalUrl: req.originalUrl,
+    baseUrl: req.baseUrl
+  });
+  next();
+});
+
 // Routes - handle both /api/* and /* (Vercel might strip /api prefix)
 app.use('/api/auth', require('../routes/auth'));
 app.use('/auth', require('../routes/auth'));
@@ -94,18 +106,6 @@ app.use('/message-requests', require('../routes/messageRequests'));
 
 app.use('/api/analytics', require('../routes/analytics'));
 app.use('/analytics', require('../routes/analytics'));
-
-// Debug middleware - place BEFORE routes to catch all requests
-app.use((req, res, next) => {
-  console.log('📥 Request received:', {
-    method: req.method,
-    path: req.path,
-    url: req.url,
-    originalUrl: req.originalUrl,
-    baseUrl: req.baseUrl
-  });
-  next();
-});
 
 // Error handling
 app.use((err, req, res, next) => {
