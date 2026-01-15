@@ -46,8 +46,20 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Database connection
-if (mongoose.connection.readyState === 0) {
+// Database connection - connect immediately and cache connection
+let mongoConnectionPromise = null;
+
+const connectMongoDB = async () => {
+  // If already connected, return
+  if (mongoose.connection.readyState === 1) {
+    return mongoose.connection;
+  }
+  
+  // If connection is in progress, return the promise
+  if (mongoConnectionPromise) {
+    return mongoConnectionPromise;
+  }
+  
   const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/citadel-app';
   
   // Log connection string info (without password) for debugging
@@ -60,11 +72,16 @@ if (mongoose.connection.readyState === 0) {
     console.warn('⚠️ MONGODB_URI is not set!');
   }
   
-  mongoose.connect(MONGODB_URI, {
+  // Start connection
+  mongoConnectionPromise = mongoose.connect(MONGODB_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
+    serverSelectionTimeoutMS: 10000, // 10 seconds
+    socketTimeoutMS: 45000, // 45 seconds
+    maxPoolSize: 10,
   }).then(() => {
     console.log('✅ Connected to MongoDB');
+    return mongoose.connection;
   }).catch((error) => {
     console.error('❌ MongoDB connection error:', error.message);
     console.error('❌ Full error:', error);
@@ -72,8 +89,45 @@ if (mongoose.connection.readyState === 0) {
       console.error('💡 Fix: Make sure MONGODB_URI starts with mongodb:// or mongodb+srv://');
       console.error('💡 Current URI preview:', MONGODB_URI ? MONGODB_URI.substring(0, 50) + '...' : 'NOT SET');
     }
+    if (error.message.includes('timeout') || error.message.includes('buffering')) {
+      console.error('💡 Fix: Check MongoDB Atlas Network Access - allow 0.0.0.0/0 (all IPs)');
+    }
+    mongoConnectionPromise = null; // Reset on error so we can retry
+    throw error;
+  });
+  
+  return mongoConnectionPromise;
+};
+
+// Connect immediately
+if (mongoose.connection.readyState === 0) {
+  connectMongoDB().catch(err => {
+    console.error('❌ Failed to connect to MongoDB on startup:', err.message);
   });
 }
+
+// Middleware to ensure MongoDB is connected before handling requests
+app.use(async (req, res, next) => {
+  // Skip health checks - they don't need DB
+  if (req.path === '/health' || req.path === '/api/health') {
+    return next();
+  }
+  
+  try {
+    // Ensure connection is established
+    if (mongoose.connection.readyState !== 1) {
+      console.log('⏳ MongoDB not connected, waiting for connection...');
+      await connectMongoDB();
+    }
+    next();
+  } catch (error) {
+    console.error('❌ MongoDB connection failed in middleware:', error.message);
+    res.status(503).json({
+      error: 'Database connection failed',
+      message: 'Unable to connect to database. Please try again later.',
+    });
+  }
+});
 
 // Health check - handle both /api/health and /health (Vercel might strip /api)
 app.get('/api/health', (req, res) => {
