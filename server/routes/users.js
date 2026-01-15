@@ -45,6 +45,22 @@ router.put('/:id', authenticate, async (req, res, next) => {
 
     const { name, gender, college, year, age, skills, imageUrl, note } = req.body;
     
+    // Log update attempt
+    console.log(`📝 Updating profile for user ${req.params.id}:`, {
+      hasImageUrl: !!imageUrl,
+      imageUrlLength: imageUrl ? imageUrl.length : 0,
+      imageUrlPreview: imageUrl ? imageUrl.substring(0, 50) + '...' : 'none',
+      noteLength: note ? note.length : 0
+    });
+    
+    // Check if imageUrl is too large (MongoDB document limit is 16MB, but let's warn at 10MB)
+    if (imageUrl && imageUrl.length > 10 * 1024 * 1024) {
+      console.warn('⚠️ Image URL is very large:', imageUrl.length, 'bytes');
+      return res.status(400).json({ 
+        error: 'Image is too large. Please use a smaller image (max ~7MB when converted to base64).' 
+      });
+    }
+    
     const updateObj = {
       name,
       gender,
@@ -91,6 +107,28 @@ router.put('/:id', authenticate, async (req, res, next) => {
       noteLength: user.note ? user.note.length : 0
     });
   } catch (error) {
+    console.error('❌ Error updating profile:', error);
+    console.error('Error details:', {
+      message: error.message,
+      name: error.name,
+      stack: error.stack
+    });
+    
+    // Handle MongoDB validation errors
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ 
+        error: 'Validation error', 
+        details: Object.values(error.errors).map(e => e.message).join(', ')
+      });
+    }
+    
+    // Handle document size errors
+    if (error.message && error.message.includes('document is too large')) {
+      return res.status(400).json({ 
+        error: 'Image is too large. Please use a smaller image.' 
+      });
+    }
+    
     next(error);
   }
 });
