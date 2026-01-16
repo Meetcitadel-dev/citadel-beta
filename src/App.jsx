@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { generateAdjectives } from "./data/adjectives.js";
 import db from "./data/db.js";
 import { authAPI, usersAPI, notificationsAPI, matchesAPI, messagesAPI, messageRequestsAPI, getToken, getCurrentUser, clearCache, testBackendConnection } from "./utils/api.js";
+import { Analytics } from "@vercel/analytics/react";
 import AuthScreen from "./components/AuthScreen.jsx";
 import EmailVerificationScreen from "./components/EmailVerificationScreen.jsx";
 import DiscoverScreen from "./components/DiscoverScreen.jsx";
@@ -1093,6 +1094,7 @@ export default function App() {
         onClose={() => setShowPaymentModal(false)}
         onSuccess={handlePaymentSuccess}
       />
+      <Analytics />
     </div>
   );
 }
